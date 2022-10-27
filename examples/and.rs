@@ -63,30 +63,30 @@ fn and<E: Engine>(
 /// This is our demo circuit for proving knowledge of the
 /// preimage of a MiMC hash invocation.
 struct AndDemo<'a, E: Engine> {
-    xl: Option<E::Fr>,
-    xr: Option<E::Fr>,
+    xl: Option<bool>,
+    xr: Option<bool>,
     constants: &'a Option<E::Fr>
 }
 
 /// Our demo circuit implements this `Circuit` trait which
 /// is used during paramgen and proving in order to
 /// synthesize the constraint system.
-impl<'a, E: Engine> Circuit<E> for AbdDemo<'a, E> {
+impl<'a, E: Engine> Circuit<E> for AndDemo<'a, E> {
     fn synthesize<CS: ConstraintSystem<E>>(
         self,
         cs: &mut CS
     ) -> Result<(), SynthesisError>
     {
-        print!("xl:{:?}  , xr:{:?}  ", self.a, self.b);
+        print!("xl:{:?}  , xr:{:?}  ", self.xl, self.xr);
         //format check: whether xl is a boolean value
         let xl_var = cs.alloc(
             || "xl",
             || {
-                if self.a.is_some() {
-                    if self.a.unwrap() {
-                        Ok(Scalar::one())
+                if self.xl.is_some() {
+                    if self.xl.unwrap() {
+                        Ok(E::Fr::one())
                     } else {
-                        Ok(Scalar::zero())
+                        Ok(E::Fr::zero())
                     }
                 } else {
                     Err(SynthesisError::AssignmentMissing)
@@ -107,9 +107,9 @@ impl<'a, E: Engine> Circuit<E> for AbdDemo<'a, E> {
             || {
                 if self.xr.is_some() {
                     if self.xr.unwrap() {
-                        Ok(Scalar::one())
+                        Ok(E::Fr::one())
                     } else {
-                        Ok(Scalar::zero())
+                        Ok(E::Fr::zero())
                     }
                 } else {
                     Err(SynthesisError::AssignmentMissing)
@@ -129,11 +129,11 @@ impl<'a, E: Engine> Circuit<E> for AbdDemo<'a, E> {
         let c_var = cs.alloc_input(
             || "c",
             || {
-                if self.a.is_some() && self.b.is_some() {
-                    if self.a.unwrap() && self.b.unwrap() {
-                        Ok(Scalar::one())
+                if self.xl.is_some() && self.xr.is_some() {
+                    if self.xl.unwrap() && self.xr.unwrap() {
+                        Ok(E::Fr::one())
                     } else {
-                        Ok(Scalar::zero())
+                        Ok(E::Fr::zero())
                     }
                 } else {
                     Err(SynthesisError::AssignmentMissing)
@@ -144,8 +144,8 @@ impl<'a, E: Engine> Circuit<E> for AbdDemo<'a, E> {
         //check whether a is same to b
         cs.enforce(
             || "c_and_constraint",
-            |lc| lc + a_var,
-            |lc| lc + b_var,
+            |lc| lc + xl_var,
+            |lc| lc + xr_var,
             |lc| lc + c_var,
         );
         Ok(())
@@ -158,7 +158,7 @@ fn main() {
     let rng = &mut thread_rng();
 
     // Generate the MiMC round constants
-    let constants = (0..MIMC_ROUNDS).map(|_| rng.gen()).collect::<Vec<_>>();
+    let constants = None;
 
     println!("Creating parameters...");
 
@@ -210,9 +210,11 @@ fn main() {
 
     for i in 0..SAMPLES {
         // Generate a random preimage and compute the image
-        let xl = if i%2==0 { Scalar::one() } else { Scalar::zero() };
-        let xr = Scalar::one();
-        let image = mimc::<Bls12>(xl, xr, &constants);
+        let flag=i%2==0;
+       // let xl = if flag { Scalar::from(1) } else { Scalar::from(0) };
+        let xl = Bls12::Fr::one();
+        let xr = Bls12::Fr::one();
+        let image = and::<Bls12>(xl, xr);
 
         proof_vec.truncate(0);
 
@@ -221,9 +223,9 @@ fn main() {
             // Create an instance of our circuit (with the
             // witness)
             let c = AndDemo {
-                xl: Some(xl),
-                xr: Some(xr),
-                constants: &constants
+                xl: Some(flag),
+                xr: Some(true),
+                constants: &image
             };
 
             // Create a groth16 proof with our parameters.
