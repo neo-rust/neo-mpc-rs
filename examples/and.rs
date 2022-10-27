@@ -51,13 +51,17 @@ use bellman::groth16::{
 /// }
 /// ```
 fn and<E: Engine>(
-    mut xl: E::Fr,
-    mut xr: E::Fr,
+    xl: bool,
+    xr: bool,
 ) -> E::Fr
 {
-    let mut tmp1 = xl;
-    tmp1.mul_assign(&xr);
-    tmp1
+    if xl&&xr == true {
+        E::Fr::one()
+    }
+    else{
+        E::Fr::zero()
+    }
+
 }
 
 /// This is our demo circuit for proving knowledge of the
@@ -212,9 +216,7 @@ fn main() {
         // Generate a random preimage and compute the image
         let flag=i%2==0;
        // let xl = if flag { Scalar::from(1) } else { Scalar::from(0) };
-        let xl = Bls12::Fr::one();
-        let xr = Bls12::Fr::one();
-        let image = and::<Bls12>(xl, xr);
+        let image = and::<Bls12>(flag, true);
 
         proof_vec.truncate(0);
 
@@ -225,7 +227,7 @@ fn main() {
             let c = AndDemo {
                 xl: Some(flag),
                 xr: Some(true),
-                constants: &image
+                constants: &Some(image)
             };
 
             // Create a groth16 proof with our parameters.
