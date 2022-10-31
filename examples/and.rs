@@ -2,7 +2,9 @@ extern crate bellman;
 extern crate pairing;
 extern crate rand;
 extern crate phase2;
+extern crate proc_macro;
 
+use std::fs::File;
 // For randomness (during paramgen and proof generation)
 use rand::{thread_rng, Rng};
 
@@ -35,6 +37,7 @@ use bellman::groth16::{
     create_random_proof,
     verify_proof,
 };
+use phase2::MPCParameters;
 
 
 /// This is an implementation of And-circuit, specifically a
@@ -81,7 +84,7 @@ impl<'a, E: Engine> Circuit<E> for AndDemo<'a, E> {
         cs: &mut CS
     ) -> Result<(), SynthesisError>
     {
-        print!("xl:{:?}  , xr:{:?}  ", self.xl, self.xr);
+        //print!("xl:{:?}  , xr:{:?}  ", self.xl, self.xr);
         //format check: whether xl is a boolean value
         let xl_var = cs.alloc(
             || "xl",
@@ -177,16 +180,35 @@ fn main() {
         phase2::MPCParameters::new(c).unwrap()
     };
 
+    //init
     let old_params = params.clone();
+    let fp_init_old_phase2_paramter="init_old_phase2_paramter";
+    let mut init_old_writer=File::create(fp_init_old_phase2_paramter).expect(format!("file:{} create failed",fp_init_old_phase2_paramter).as_str());
+    old_params.write(init_old_writer);
+
     params.contribute(rng);
+    let fp_init_new_phase2_paramter="init_new_phase2_paramter";
+    let mut init_new_writer=File::create(fp_init_new_phase2_paramter).expect(format!("file:{} create failed",fp_init_new_phase2_paramter).as_str());
+    params.write(init_new_writer);
+    //first_contrib
+    let mut old_reader =File::open(fp_init_old_phase2_paramter).expect(format!("file:{} open failed", fp_init_old_phase2_paramter).as_str());
+    let old_params = MPCParameters::read(old_reader, false).expect("old_params read failed");
+
+    let mut new_reader =File::open(fp_init_new_phase2_paramter).expect(format!("file:{} open failed", fp_init_new_phase2_paramter).as_str());
+    let mut params = MPCParameters::read(new_reader, false).expect("new_params read failed");
 
     let first_contrib = phase2::verify_contribution(&old_params, &params).expect("should verify");
-
-    let old_params = params.clone();
     params.contribute(rng);
+    let fp_first_phase2_paramter="first_phase2_paramter";
+    let mut first_writer=File::create(fp_first_phase2_paramter).expect(format!("file:{} create failed",fp_first_phase2_paramter).as_str());
+    params.write(first_writer);
+    //second_contrib
+    let mut old_reader=File::open(fp_init_new_phase2_paramter).expect(format!("file:{} open failed",fp_init_new_phase2_paramter).as_str());
+    let old_params = MPCParameters::read(old_reader,false).expect("old_params read failed");
 
+    let mut new_reader=File::open(fp_first_phase2_paramter).expect(format!("file:{} open failed",fp_first_phase2_paramter).as_str());
+    let mut params = MPCParameters::read(new_reader,false).expect("new_params read failed");
     let second_contrib = phase2::verify_contribution(&old_params, &params).expect("should verify");
-
     let verification_result = params.verify(AndDemo::<Bls12> {
         xl: None,
         xr: None,
