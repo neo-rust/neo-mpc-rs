@@ -5,6 +5,7 @@ extern crate phase2;
 extern crate proc_macro;
 
 use std::fs::File;
+use std::vec;
 // For randomness (during paramgen and proof generation)
 use rand::{thread_rng, Rng};
 
@@ -40,19 +41,7 @@ use bellman::groth16::{
 use phase2::MPCParameters;
 
 
-/// This is an implementation of And-circuit, specifically a
-/// variant named `LongsightF322p3` for BLS12-381.
-/// See http://eprint.iacr.org/2016/492 for more
-/// information about this construction.
-///
-/// ```
-/// function LongsightF322p3(xL ⦂ Fp, xR ⦂ Fp) {
-///     for i from 0 up to 321 {
-///         xL, xR := xR + (xL + Ci)^3, xL
-///     }
-///     return xL
-/// }
-/// ```
+/// This is an implementation of And-circuit
 fn and<E: Engine>(
     xl: bool,
     xr: bool,
@@ -68,7 +57,7 @@ fn and<E: Engine>(
 }
 
 /// This is our demo circuit for proving knowledge of the
-/// preimage of a MiMC hash invocation.
+/// preimage of And invocation.
 struct AndDemo<'a, E: Engine> {
     xl: Option<bool>,
     xr: Option<bool>,
@@ -160,15 +149,10 @@ impl<'a, E: Engine> Circuit<E> for AndDemo<'a, E> {
 }
 
 fn main() {
-    // This may not be cryptographically safe, use
-    // `OsRng` (for example) in production software.
+    //MPC-process
     let rng = &mut thread_rng();
-
-    // Generate the MiMC round constants
     let constants = None;
-
     println!("Creating parameters...");
-
     // Create parameters for our circuit
     let mut params = {
         let c = AndDemo::<Bls12> {
@@ -176,90 +160,67 @@ fn main() {
             xr: None,
             constants: &constants
         };
-
         phase2::MPCParameters::new(c).unwrap()
     };
+    //file_path
+    let fp_phase2_paramters=["init_old_phase2_paramter","init_new_phase2_paramter","first_phase2_paramter","second_phase2_paramter"];
+    let mut my_contribution=Vec::new();
 
-    //init
+    let fp_old_params=fp_phase2_paramters[0];
     let old_params = params.clone();
-    let fp_init_old_phase2_paramter="init_old_phase2_paramter";
-    let mut init_old_writer=File::create(fp_init_old_phase2_paramter).expect(format!("file:{} create failed",fp_init_old_phase2_paramter).as_str());
-    old_params.write(init_old_writer);
+    writer_params(&old_params, fp_old_params);
 
-    params.contribute(rng);
-    let fp_init_new_phase2_paramter="init_new_phase2_paramter";
-    let mut init_new_writer=File::create(fp_init_new_phase2_paramter).expect(format!("file:{} create failed",fp_init_new_phase2_paramter).as_str());
-    params.write(init_new_writer);
-    //first_contrib
-    let mut old_reader =File::open(fp_init_old_phase2_paramter).expect(format!("file:{} open failed", fp_init_old_phase2_paramter).as_str());
-    let old_params = MPCParameters::read(old_reader, false).expect("old_params read failed");
+    for index in 0..fp_phase2_paramters.len()-1{
+        //before contribute create
+        let fp_old_params=fp_phase2_paramters[index];
+        let fp_new_params=fp_phase2_paramters[index+1];
+        params.contribute(rng);
+        writer_params(&params, fp_new_params);
+        //next contribute verify
+        let old_params=read_params(fp_old_params);
+        let new_params=read_params(fp_new_params);
+        let contrib = phase2::verify_contribution(&old_params, &new_params).expect("should verify");
+        my_contribution.push(contrib);
+    }
 
-    let mut new_reader =File::open(fp_init_new_phase2_paramter).expect(format!("file:{} open failed", fp_init_new_phase2_paramter).as_str());
-    let mut params = MPCParameters::read(new_reader, false).expect("new_params read failed");
-
-    let first_contrib = phase2::verify_contribution(&old_params, &params).expect("should verify");
-    params.contribute(rng);
-    let fp_first_phase2_paramter="first_phase2_paramter";
-    let mut first_writer=File::create(fp_first_phase2_paramter).expect(format!("file:{} create failed",fp_first_phase2_paramter).as_str());
-    params.write(first_writer);
-    //second_contrib
-    let mut old_reader=File::open(fp_init_new_phase2_paramter).expect(format!("file:{} open failed",fp_init_new_phase2_paramter).as_str());
-    let old_params = MPCParameters::read(old_reader,false).expect("old_params read failed");
-
-    let mut new_reader=File::open(fp_first_phase2_paramter).expect(format!("file:{} open failed",fp_first_phase2_paramter).as_str());
-    let mut params = MPCParameters::read(new_reader,false).expect("new_params read failed");
-    let second_contrib = phase2::verify_contribution(&old_params, &params).expect("should verify");
     let verification_result = params.verify(AndDemo::<Bls12> {
         xl: None,
         xr: None,
         constants: &constants
     }).unwrap();
-
-    assert!(phase2::contains_contribution(&verification_result, &first_contrib));
-    assert!(phase2::contains_contribution(&verification_result, &second_contrib));
-
+    for (index,item) in my_contribution.iter().enumerate(){
+        assert!(phase2::contains_contribution(&verification_result, &item));
+    }
+    //Proof-process
     let params = params.get_params();
-
     // Prepare the verification key (for proof verification)
     let pvk = prepare_verifying_key(&params.vk);
-
     println!("Creating proofs...");
-
     // Let's benchmark stuff!
     const SAMPLES: u32 = 50;
     let mut total_proving = Duration::new(0, 0);
     let mut total_verifying = Duration::new(0, 0);
-
     // Just a place to put the proof data, so we can
     // benchmark deserialization.
     let mut proof_vec = vec![];
-
     for i in 0..SAMPLES {
         // Generate a random preimage and compute the image
         let flag=i%2==0;
-       // let xl = if flag { Scalar::from(1) } else { Scalar::from(0) };
         let image = and::<Bls12>(flag, true);
-
         proof_vec.truncate(0);
-
         let start = Instant::now();
         {
-            // Create an instance of our circuit (with the
-            // witness)
+            // Create an instance of our circuit (with the witness)
             let c = AndDemo {
                 xl: Some(flag),
                 xr: Some(true),
                 constants: &Some(image)
             };
-
             // Create a groth16 proof with our parameters.
             let proof = create_random_proof(c, params, rng).unwrap();
-
             proof.write(&mut proof_vec).unwrap();
         }
-
         total_proving += start.elapsed();
-
         let start = Instant::now();
         let proof = Proof::read(&proof_vec[..]).unwrap();
         // Check the proof
@@ -273,11 +234,19 @@ fn main() {
     let proving_avg = total_proving / SAMPLES;
     let proving_avg = proving_avg.subsec_nanos() as f64 / 1_000_000_000f64
         + (proving_avg.as_secs() as f64);
-
     let verifying_avg = total_verifying / SAMPLES;
     let verifying_avg = verifying_avg.subsec_nanos() as f64 / 1_000_000_000f64
         + (verifying_avg.as_secs() as f64);
-
     println!("Average proving time: {:?} seconds", proving_avg);
     println!("Average verifying time: {:?} seconds", verifying_avg);
+}
+
+fn read_params(file_path:&str)->MPCParameters{
+    let mut reader =File::open(file_path).expect(format!("file:{} open failed", file_path).as_str());
+    return MPCParameters::read(reader, false).expect("params read failed");
+}
+
+fn writer_params(params:&MPCParameters, file_path:&str){
+    let mut writer=File::create(file_path).expect(format!("file:{} create failed",file_path).as_str());
+    params.write(writer);
 }
