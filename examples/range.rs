@@ -19,16 +19,10 @@ use pairing::{
 };
 
 // We're going to use the BLS12-381 pairing-friendly elliptic curve.
-use pairing::bls12_381::{
-    Bls12
-};
+use pairing::bls12_381::{Bls12, Fr};
 
 // We'll use these interfaces to construct our circuit.
-use bellman::{
-    Circuit,
-    ConstraintSystem,
-    SynthesisError
-};
+use bellman::{Circuit, ConstraintSystem, LinearCombination, SynthesisError};
 use bellman::domain::Scalar;
 
 // We're going to use the Groth16 proving system.
@@ -38,121 +32,133 @@ use bellman::groth16::{
     create_random_proof,
     verify_proof,
 };
-use phase2::{contains_contribution, MPCParameters};
+use phase2::MPCParameters;
 
 
-/// This is an implementation of And-circuit
-fn and<E: Engine>(
-    xl: bool,
-    xr: bool,
-) -> E::Fr
+/// This is an implementation of Range-circuit
+fn range<E: Engine>(
+    b:u64,
+    n: u64,
+    less_or_equal:u64,
+    less:u64,
+) -> [Fr;4]
 {
-    if xl&&xr == true {
-        E::Fr::one()
-    }
-    else{
-        E::Fr::zero()
-    }
-
+    let mut result=[Fr;4];
+    result[0]=b;
+    result[1]=1<<(n-1);
+    result[2]=less;
+    result[3]=less_or_equal;
+    result;
 }
 
 /// This is our demo circuit for proving knowledge of the
-/// preimage of And invocation.
-struct AndDemo<'a, E: Engine> {
-    xl: Option<bool>,
-    xr: Option<bool>,
-    constants: &'a Option<E::Fr>
+/// preimage of Range invocation.
+struct RangeDemo<'a, E: Engine> {
+    a: Option<E::Fr>,
+    w:Option<E::Fr>,
+    wArray:Option<[E::Fr;4]>,
+    not_all_zeros:Option<E::Fr>,
+    crArray:Option<[E::Fr;4]>,
+    constants: &'a Option<[E::Fr;4]>
 }
 
 /// Our demo circuit implements this `Circuit` trait which
 /// is used during paramgen and proving in order to
 /// synthesize the constraint system.
-impl<'a, E: Engine> Circuit<E> for AndDemo<'a, E> {
+impl<'a, E: Engine> Circuit<E> for RangeDemo<'a, E> {
     fn synthesize<CS: ConstraintSystem<E>>(
         self,
         cs: &mut CS
-    ) -> Result<(), SynthesisError>
-    {
-        //print!("xl:{:?}  , xr:{:?}  ", self.xl, self.xr);
-        //format check: whether xl is a boolean value
-        let xl_var = cs.alloc(
-            || "xl",
-            || {
-                if self.xl.is_some() {
-                    if self.xl.unwrap() {
-                        Ok(E::Fr::one())
-                    } else {
-                        Ok(E::Fr::zero())
-                    }
-                } else {
-                    Err(SynthesisError::AssignmentMissing)
-                }
-            },
-        )?;
-        //check whether xl is a boolean value
+    ) -> Result<(), SynthesisError> {
+        let a_var = Scalar::from(self.a.unwrap());
+        let b_var = Scalar::from(self.constants.get(0));
+        let pow2n=Scalar::from(self.constants.get(1));
+        let less_or_equal_var = Scalar::from(self.constants.get(2));
+        let less_var = Scalar::from(self.constants.get(3));
+        let w_var = Scalar::from(self.w.unwrap());
+        let mut wArray_var= vec![];
+        let not_all_zeros_var = Scalar::from(self.not_all_zeros.unwrap());
+        let mut crArray_var= vec![];
+
+        for i in 0 .. self.wArray.unwrap().len(){
+            let wArray_v = cs.alloc(||"",||Ok(Scalar::from(*self.wArray.unwrap().get(i).unwrap())));
+            wArray_var.push(wArray_v.unwrap());
+        }
+        for i in 0 .. self.crArray.unwrap().len() {
+            let cArray_v = cs.alloc(||"",||Ok(Scalar::from(*self.crArray.unwrap().get(i).unwrap())));
+            crArray_var.push(cArray_v.unwrap());
+        }
+
+        let mut a = cs.alloc_input(|| "a", ||  Ok(a_var))?;
+        let mut b = cs.alloc_input(|| "b", || Ok(b_var))?;
+        let mut w = cs.alloc(|| "w", || Ok(w_var))?;
+        let mut not_all_zeros = cs.alloc(|| "not_all_zeros", || Ok(not_all_zeros_var))?;
+        let mut less_or_equal = cs.alloc_input(|| "less_or_equal", || Ok(less_or_equal_var))?;
+        let mut less = cs.alloc_input(|| "less", || Ok(less_var))?;
+
         cs.enforce(
-            || "xl_boolean_constraint",
-            |lc| lc + CS::one() - xl_var,
-            |lc| lc + xl_var,
+            || "w=2^n+b-a",
+            |lc| lc + w,
+            |lc| lc + CS::one(),
+            |lc| lc+(Scalar::from(pow2n),CS::one())+b-a,
+        );
+
+        let mut lc1 = E::Fr::zero();
+        for i in 0..wArray_var.len(){
+            lc1 = lc1 + (Scalar::from(E::Fr::one()<<i),wArray_var[i]);
+        }
+        lc1=lc1-w;
+        cs.enforce(
+            || "2^0*w0+.......-w=0",
+            |_| lc1,
+            |lc| lc + CS::one(),
             |lc| lc,
         );
 
-        //format check: whether xr is a boolean value
-        let xr_var = cs.alloc(
-            || "xr",
-            || {
-                if self.xr.is_some() {
-                    if self.xr.unwrap() {
-                        Ok(E::Fr::one())
-                    } else {
-                        Ok(E::Fr::zero())
-                    }
-                } else {
-                    Err(SynthesisError::AssignmentMissing)
-                }
-            },
-        )?;
+        for i in 0..wArray_var.len() {
+            cs.enforce(
+                || "w0(1-w0)=0",
+                |lc| lc + wArray_var[i],
+                |lc| lc + CS::one()-wArray_var[i],
+                |lc| lc,
+            );
+        }
 
-        //check whether xr is a boolean value
         cs.enforce(
-            || "xr_boolean_constraint",
-            |lc| lc + CS::one() - xr_var,
-            |lc| lc + xr_var,
-            |lc| lc,
+            || "w0=cr0",
+            |lc| lc + wArray_var[0],
+            |lc| lc + CS::one(),
+            |lc| lc+crArray_var[0],
         );
 
-        //format check: whether constant is a boolean value
-        let c_var = cs.alloc_input(
-            || "c",
-            || {
-                let mut constants_var=false;
-                if self.constants.unwrap()==E::Fr::zero(){
-                    constants_var=false;
-                }
-                else if self.constants.unwrap()==E::Fr::one() {
-                    constants_var=true;
-                }else {
-                    return Err(SynthesisError::AssignmentMissing)
-                }
-                if self.xl.is_some() && self.xr.is_some(){
-                    if self.xl.unwrap() && self.xr.unwrap() {
-                        Ok(E::Fr::one())
-                    }
-                    else{
-                        Ok(E::Fr::zero())
-                    }
-                } else {
-                    Err(SynthesisError::AssignmentMissing)
-                }
-            },
-        )?;
+        for i in 1..crArray_var.len() {
+            cs.enforce(
+                || "(cr_(i-1)-1)(wi-1)=1-cr_i",
+                |lc| lc + crArray_var[i-1]-CS::one(),
+                |lc| lc + wArray_var[i]-CS::one(),
+                |lc| lc+CS::one()- crArray_var[i],
+            );
+        }
 
-        //check whether a is same to b
         cs.enforce(
-            || "c_and_constraint",
-            |lc| lc + xl_var,
-            |lc| lc + xr_var,
-            |lc| lc + c_var,
+            || "not_all_zeros=cr_n",
+            |lc| lc + not_all_zeros,
+            |lc| lc + CS::one(),
+            |lc| lc+crArray_var[crArray_var.len()-1],
+        );
+
+        cs.enforce(
+            || "wn=less_or_equal*wn",
+            |lc| lc + wArray_var[wArray_var.len()-1],
+            |lc| lc + less_or_equal,
+            |lc| lc+wArray_var[wArray_var.len()-1],
+        );
+
+        cs.enforce(
+            || "wn*less_or_equal=less",
+            |lc| lc + wArray_var[wArray_var.len()-1],
+            |lc| lc + not_all_zeros,
+            |lc| lc+less,
         );
         Ok(())
     }
@@ -165,9 +171,12 @@ fn main() {
     println!("Creating parameters...");
     // Create parameters for our circuit
     let mut params = {
-        let c = AndDemo::<Bls12> {
-            xl: None,
-            xr: None,
+        let c = RangeDemo::<Bls12> {
+            a: Some(1u64),
+            w:Some(9u64),
+            wArray:Some([1u64,0u64,0u64,1u64]),
+            not_all_zeros:Some(1u64),
+            crArray:Some([1u64,1u64,1u64,1u64]),
             constants: &constants
         };
         phase2::MPCParameters::new(c).unwrap()
@@ -193,9 +202,12 @@ fn main() {
         my_contribution.push(contrib);
     }
 
-    let verification_result = params.verify(AndDemo::<Bls12> {
-        xl: None,
-        xr: None,
+    let verification_result = params.verify(RangeDemo::<Bls12> {
+        a: Some(1u64),
+        w:Some(9u64),
+        wArray:Some([1u64,0u64,0u64,1u64]),
+        not_all_zeros:Some(1u64),
+        crArray:Some([1u64,1u64,1u64,1u64]),
         constants: &constants
     }).unwrap();
     for (index,item) in my_contribution.iter().enumerate(){
@@ -215,15 +227,17 @@ fn main() {
     let mut proof_vec = vec![];
     for i in 0..SAMPLES {
         // Generate a random preimage and compute the image
-        let flag=i%2==0;
-        let image = and::<Bls12>(flag, true);
+        let image = range::<Bls12>(2u64, 4u64,1u64,1u64);
         proof_vec.truncate(0);
         let start = Instant::now();
         {
             // Create an instance of our circuit
-            let c = AndDemo {
-                xl: Some(flag),
-                xr: Some(true),
+            let c = RangeDemo {
+                a: Some(1u64),
+                w:Some(9u64),
+                wArray:Some([1u64,0u64,0u64,1u64]),
+                not_all_zeros:Some(1u64),
+                crArray:Some([1u64,1u64,1u64,1u64]),
                 constants: &Some(image)
             };
             // Create a groth16 proof with our parameters.
@@ -237,7 +251,7 @@ fn main() {
         assert!(verify_proof(
             &pvk,
             &proof,
-            &[image]
+            &image
         ).unwrap());
         total_verifying += start.elapsed();
     }
