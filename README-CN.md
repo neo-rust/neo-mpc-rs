@@ -22,24 +22,22 @@ phase2过程需要多个贡献者提供不同的随机数种子来保证安全�
 
 
 
-## [Documentation](https://docs.rs/phase2/)
-
 ## Security Warnings
 
-This library does not make any guarantees about constant-time operations, memory access patterns, or resistance to side-channel attacks.
+本库不对恒定时间操作、内存访问模式或抗侧信道攻击作出任何保证。
 
 ## License
 
-Licensed under either of
+根据以下任一许可
+- Apache 许可证，版本 2.0，（[LICENSE-APACHE](LICENSE-APACHE) 或 http://www.apache.org/licenses/LICENSE-2.0）
+- MIT 许可证（[LICENSE-MIT](LICENSE-MIT) 或 http://opensource.org/licenses/MIT）
+  在你的选择。
 
- * Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
- * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
 
-at your option.
 
-### Contribution
+## Contribution
 
-Unless you explicitly state otherwise, any contribution intentionally
-submitted for inclusion in the work by you, as defined in the Apache-2.0
-license, shall be dual licensed as above, without any additional terms or
-conditions.
+除非您另有明确说明，否则任何有意做出的贡献
+按照 Apache-2.0 中的定义，由您提交以包含在作品中
+许可，应按上述双重许可，无任何附加条款或
+条件。
