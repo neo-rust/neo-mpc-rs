@@ -557,7 +557,7 @@ impl MPCParameters {
                     let alpha_coeffs_g1 = alpha_coeffs_g1.clone();
                     let beta_coeffs_g1 = beta_coeffs_g1.clone();
 
-                    scope.spawn(move |scope| {
+                    scope.spawn(move |_| {
                         for ((((((a_g1, b_g1), b_g2), ext), at), bt), ct) in a_g1
                             .iter_mut()
                             .zip(b_g1.iter_mut())
@@ -1333,7 +1333,7 @@ fn keypair<R: RngCore>(rng: &mut R, current: &MPCParameters) -> (PublicKey, Priv
 
 /// Hashes to G2 using the first 32 bytes of `digest`. Panics if `digest` is less
 /// than 32 bytes.
-fn hash_to_g2(mut digest: &[u8]) -> G2Projective {
+fn hash_to_g2(digest: &[u8]) -> G2Projective {
     assert!(digest.len() >= 32);
 
     let mut seed = [0u8; 32];

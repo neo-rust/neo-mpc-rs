@@ -9,47 +9,46 @@ extern crate rand;
 use std::fs::File;
 use std::vec;
 // For randomness (during paramgen and proof generation)
-use rand::{thread_rng, Rng};
+use rand::{thread_rng};
 
 // For benchmarking
 use std::time::{Duration, Instant};
 
-// Bring in some tools for using pairing-friendly curves
-use pairing::Engine;
-
-use ff::PrimeField;
+// Bring in some tools for using finite fields
+use ff::{PrimeField};
 
 // We're going to use the BLS12-381 pairing-friendly elliptic curve.
-use bls12_381::{Bls12, Scalar};
+use bls12_381::{Scalar};
 
 use bellman::{Circuit, ConstraintSystem, SynthesisError};
 
 // We're going to use the Groth16 proving system.
 use bellman::groth16::{create_random_proof, prepare_verifying_key, verify_proof, Proof};
-use phase2::{contains_contribution, MPCParameters};
+
+use phase2::{MPCParameters};
 
 /// This is an implementation of And-circuit
-fn and<E: Engine>(xl: bool, xr: bool) -> Scalar {
+fn and<S: PrimeField>(xl: bool, xr: bool) -> S {
     if xl && xr == true {
-        Scalar::one()
+        S::one()
     } else {
-        Scalar::zero()
+        S::zero()
     }
 }
 
 /// This is our demo circuit for proving knowledge of the
 /// preimage of And invocation.
-struct AndDemo<'a, Scalar: PrimeField> {
+struct AndDemo<'a, S: PrimeField> {
     xl: Option<bool>,
     xr: Option<bool>,
-    constants: &'a Option<Scalar>,
+    constants: &'a Option<S>,
 }
 
 /// Our demo circuit implements this `Circuit` trait which
 /// is used during paramgen and proving in order to
 /// synthesize the constraint system.
-impl<'a, Scalar: PrimeField> Circuit<Scalar> for AndDemo<'a, Scalar> {
-    fn synthesize<CS: ConstraintSystem<Scalar>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
+impl<'a, S: PrimeField> Circuit<S> for AndDemo<'a, S> {
+    fn synthesize<CS: ConstraintSystem<S>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
         //print!("xl:{:?}  , xr:{:?}  ", self.xl, self.xr);
         //format check: whether xl is a boolean value
         let xl_var = cs.alloc(
@@ -57,9 +56,9 @@ impl<'a, Scalar: PrimeField> Circuit<Scalar> for AndDemo<'a, Scalar> {
             || {
                 if self.xl.is_some() {
                     if self.xl.unwrap() {
-                        Ok(Scalar::one())
+                        Ok(S::one())
                     } else {
-                        Ok(Scalar::zero())
+                        Ok(S::zero())
                     }
                 } else {
                     Err(SynthesisError::AssignmentMissing)
@@ -80,9 +79,9 @@ impl<'a, Scalar: PrimeField> Circuit<Scalar> for AndDemo<'a, Scalar> {
             || {
                 if self.xr.is_some() {
                     if self.xr.unwrap() {
-                        Ok(Scalar::one())
+                        Ok(S::one())
                     } else {
-                        Ok(Scalar::zero())
+                        Ok(S::zero())
                     }
                 } else {
                     Err(SynthesisError::AssignmentMissing)
@@ -103,18 +102,18 @@ impl<'a, Scalar: PrimeField> Circuit<Scalar> for AndDemo<'a, Scalar> {
             || "c",
             || {
                 let mut constants_var = false;
-                if self.constants.unwrap() == Scalar::zero() {
+                if self.constants.unwrap() == S::zero() {
                     constants_var = false;
-                } else if self.constants.unwrap() == Scalar::one() {
+                } else if self.constants.unwrap() == S::one() {
                     constants_var = true;
                 } else {
                     return Err(SynthesisError::AssignmentMissing);
                 }
                 if self.xl.is_some() && self.xr.is_some() {
                     if self.xl.unwrap() && self.xr.unwrap() {
-                        Ok(Scalar::one())
+                        Ok(S::one())
                     } else {
-                        Ok(Scalar::zero())
+                        Ok(S::zero())
                     }
                 } else {
                     Err(SynthesisError::AssignmentMissing)
@@ -180,7 +179,7 @@ fn main() {
             constants: &constants,
         })
         .unwrap();
-    for (index, item) in my_contribution.iter().enumerate() {
+    for (_index, item) in my_contribution.iter().enumerate() {
         assert!(phase2::contains_contribution(&verification_result, &item));
     }
     //Proof-process
@@ -198,7 +197,7 @@ fn main() {
     for i in 0..SAMPLES {
         // Generate a random preimage and compute the image
         let flag = i % 2 == 0;
-        let image = and::<Bls12>(flag, true);
+        let image = and::<Scalar>(flag, true);
         proof_vec.truncate(0);
         let start = Instant::now();
         {
@@ -230,13 +229,13 @@ fn main() {
 }
 
 fn read_params(file_path: &str) -> MPCParameters {
-    let mut reader =
+    let reader =
         File::open(file_path).expect(format!("file:{} open failed", file_path).as_str());
     return MPCParameters::read(reader, false).expect("params read failed");
 }
 
 fn writer_params(params: &MPCParameters, file_path: &str) {
-    let mut writer =
+    let writer =
         File::create(file_path).expect(format!("file:{} create failed", file_path).as_str());
-    params.write(writer);
+    assert!(params.write(writer).is_ok());
 }

@@ -6,7 +6,7 @@ extern crate phase2;
 extern crate rand;
 
 // For randomness (during paramgen and proof generation)
-use rand::{thread_rng, Rng};
+use rand::{thread_rng};
 
 // For benchmarking
 use std::time::{Duration, Instant};
@@ -15,7 +15,7 @@ use std::time::{Duration, Instant};
 use ff::{Field, PrimeField};
 
 // We're going to use the BLS12-381 pairing-friendly elliptic curve.
-use bls12_381::{Bls12, Scalar};
+use bls12_381::{Scalar};
 
 // We'll use these interfaces to construct our circuit.
 use bellman::{Circuit, ConstraintSystem, SynthesisError};
