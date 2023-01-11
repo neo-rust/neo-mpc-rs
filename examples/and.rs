@@ -133,7 +133,7 @@ impl<'a, S: PrimeField> Circuit<S> for AndDemo<'a, S> {
 }
 
 fn main() {
-    //MPC-process
+    // MPC process
     let mut rng = thread_rng();
     let constants = None;
     println!("Creating parameters...");
@@ -146,7 +146,7 @@ fn main() {
         };
         phase2::MPCParameters::new(c).unwrap()
     };
-    //file_path
+    // File path
     let fp_phase2_paramters = [
         "init_old_phase2_paramter",
         "init_new_phase2_paramter",
@@ -160,12 +160,12 @@ fn main() {
     writer_params(&old_params, fp_old_params);
 
     for index in 0..fp_phase2_paramters.len() - 1 {
-        //before contribute create
+        // Before contribute create
         let fp_old_params = fp_phase2_paramters[index];
         let fp_new_params = fp_phase2_paramters[index + 1];
         params.contribute(&mut rng);
         writer_params(&params, fp_new_params);
-        //next contribute verify
+        // Next contribute verify
         let old_params = read_params(fp_old_params);
         let new_params = read_params(fp_new_params);
         let contrib = phase2::verify_contribution(&old_params, &new_params).expect("should verify");
