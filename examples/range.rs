@@ -17,7 +17,7 @@ use std::{
 use ff::{PrimeField};
 
 // We're going to use the BLS12-381 pairing-friendly elliptic curve.
-use bls12_381::{Bls12, Scalar};
+use bls12_381::{Scalar};
 
 // We'll use these interfaces to construct our circuit.
 use bellman::{Circuit, ConstraintSystem, LinearCombination, SynthesisError};
@@ -35,9 +35,9 @@ use phase2::MPCParameters;
 /// This is an implementation of Range-circuit
 fn range<S: PrimeField>(b: S, less_or_equal: S, less: S) -> [S; 3] {
     let mut result = [S::zero(); 3];
-    result[0] = b.into();
-    result[1] = less_or_equal.into();
-    result[2] = less.into();
+    result[0] = b;
+    result[1] = less_or_equal;
+    result[2] = less;
     result
 }
 
@@ -46,9 +46,9 @@ fn range<S: PrimeField>(b: S, less_or_equal: S, less: S) -> [S; 3] {
 struct RangeDemo<'a, S: PrimeField> {
     a: Option<S>,
     w: Option<S>,
-    wArray: Option<[S; 4]>,
+    wArray: Option<Vec<S>>,
     not_all_zeros: Option<S>,
-    crArray: Option<[S; 3]>,
+    crArray: Option<Vec<S>>,
     constants: &'a Option<[S; 3]>
 }
 
@@ -58,17 +58,17 @@ struct RangeDemo<'a, S: PrimeField> {
 impl<'a, S: PrimeField> Circuit<S> for RangeDemo<'a, S> {
     fn synthesize<CS: ConstraintSystem<S>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
         let a_value = self.a;
-        let mut a = cs.alloc(
+        let a = cs.alloc(
             || "a",
             || a_value.ok_or(SynthesisError::AssignmentMissing),
         )?;
         let w_value = self.w;
-        let mut w = cs.alloc(
+        let w = cs.alloc(
             || "w",
             || w_value.ok_or(SynthesisError::AssignmentMissing),
         )?;
         let not_all_zeros_value = self.not_all_zeros;
-        let mut not_all_zeros = cs.alloc(
+        let not_all_zeros = cs.alloc(
             || "not_all_zeros",
             || not_all_zeros_value.ok_or(SynthesisError::AssignmentMissing),
         )?;
@@ -77,7 +77,7 @@ impl<'a, S: PrimeField> Circuit<S> for RangeDemo<'a, S> {
         let wArray = self.wArray.unwrap();
         for i in 0..wArray.len(){
             let wArray_v = cs.alloc(
-                || "",
+                || format!("w array {}", i),
                 || wArray.get(i).ok_or(SynthesisError::AssignmentMissing).copied(),
             );
             wArray_value.push(wArray_v.unwrap());
@@ -86,31 +86,32 @@ impl<'a, S: PrimeField> Circuit<S> for RangeDemo<'a, S> {
         let crArray = self.crArray.unwrap();
         for i in 0..crArray.len() {
             let crArray_v = cs.alloc(
-                || "",
+                || format!("c array {}", i),
                 || crArray.get(i).ok_or(SynthesisError::AssignmentMissing).copied(),
             );
             crArray_value.push(crArray_v.unwrap());
         }
-        let n_var = wArray_value.len() as u64;
 
         let constants_value = self.constants.unwrap();
         let b_value = constants_value.get(0);
-        let mut b = cs.alloc_input(
+        let b = cs.alloc_input(
             || "b",
             || b_value.ok_or(SynthesisError::AssignmentMissing).copied(),
         )?;
         let less_or_equal_value = constants_value.get(1);
-        let mut less_or_equal = cs.alloc_input(
+        let less_or_equal = cs.alloc_input(
             || "less_or_equal",
             || less_or_equal_value.ok_or(SynthesisError::AssignmentMissing).copied(),
         )?;
         let less_value = constants_value.get(2);
-        let mut less = cs.alloc_input(
+        let less = cs.alloc_input(
             || "less",
             || less_value.ok_or(SynthesisError::AssignmentMissing).copied(),
         )?;
 
-        let mv = 1 << (n_var - 1u64);
+        let n_value = wArray_value.len();
+        assert_eq!(crArray_value.len() + 1, n_value);
+        let mv = 1 << (n_value as u64 - 1u64);
         cs.enforce(
             || "w=2^(n-1)+b-a",
             |lc| lc + w,
@@ -190,9 +191,9 @@ fn main() {
         let c = RangeDemo::<Scalar> {
             a: Some(1u64.into()),
             w: Some(8u64.into()),
-            wArray: Some([0u64.into(), 0u64.into(), 0u64.into(), 1u64.into()]),
+            wArray: Some(vec![0u64.into(), 0u64.into(), 0u64.into(), 1u64.into()]),
             not_all_zeros: Some(0u64.into()),
-            crArray: Some([0u64.into(), 0u64.into(), 0u64.into()]),
+            crArray: Some(vec![0u64.into(), 0u64.into(), 0u64.into()]),
             constants: &constants,
         };
         //generate_random_parameters::<Bls12, _, _>(c, &mut rng).unwrap()
@@ -228,13 +229,13 @@ fn main() {
         .verify(RangeDemo::<Scalar> {
             a: Some(1u64.into()),
             w: Some(8u64.into()),
-            wArray: Some([0u64.into(), 0u64.into(), 0u64.into(), 1u64.into()]),
+            wArray: Some(vec![0u64.into(), 0u64.into(), 0u64.into(), 1u64.into()]),
             not_all_zeros: Some(0u64.into()),
-            crArray: Some([0u64.into(), 0u64.into(), 0u64.into()]),
+            crArray: Some(vec![0u64.into(), 0u64.into(), 0u64.into()]),
             constants: &constants,
         }).unwrap();
 
-    for (index,item) in my_contribution.iter().enumerate(){
+    for (_, item) in my_contribution.iter().enumerate() {
         assert!(phase2::contains_contribution(&verification_result, &item));
     }
 
@@ -250,7 +251,7 @@ fn main() {
     // Just a place to put the proof data, so we can
     // benchmark deserialization.
     let mut proof_vec = vec![];
-    for i in 0..SAMPLES {
+    for _ in 0..SAMPLES {
         // Generate a random preimage and compute the image
         let image = range::<Scalar>(2u64.into(), 1u64.into(), 1u64.into());
         proof_vec.truncate(0);
@@ -260,9 +261,9 @@ fn main() {
             let c = RangeDemo {
                 a: Some(1u64.into()),
                 w: Some(9u64.into()),
-                wArray: Some([1u64.into(), 0u64.into(), 0u64.into(), 1u64.into()]),
+                wArray: Some(vec![1u64.into(), 0u64.into(), 0u64.into(), 1u64.into()]),
                 not_all_zeros: Some(1u64.into()),
-                crArray: Some([1u64.into(), 1u64.into(), 1u64.into()]),
+                crArray: Some(vec![1u64.into(), 1u64.into(), 1u64.into()]),
                 constants: &Some(image)
             };
             // Create a groth16 proof with our parameters.
@@ -286,12 +287,12 @@ fn main() {
     println!("Average verifying time: {:?} seconds", verifying_avg);
 }
 
-fn read_params(file_path:&str)->MPCParameters{
-    let mut reader = File::open(file_path).expect(format!("file:{} open failed", file_path).as_str());
+fn read_params(file_path: &str) -> MPCParameters {
+    let reader = File::open(file_path).expect(format!("file:{} open failed", file_path).as_str());
     return MPCParameters::read(reader, false).expect("params read failed");
 }
 
-fn writer_params(params:&MPCParameters, file_path:&str){
+fn writer_params(params: &MPCParameters, file_path:&str) {
     let writer = File::create(file_path).expect(format!("file:{} create failed", file_path).as_str());
     assert!(params.write(writer).is_ok());
 }
