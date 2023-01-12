@@ -30,7 +30,7 @@ use bellman::groth16::{
     verify_proof,
 };
 
-use phase2::MPCParameters;
+use phase2::{MPCParameters, read_params, writer_params};
 
 /// This is an implementation of Range-circuit
 fn range<S: PrimeField>(b: S, less_or_equal: S, less: S) -> [S; 3] {
@@ -285,14 +285,4 @@ fn main() {
         + (verifying_avg.as_secs() as f64);
     println!("Average proving time: {:?} seconds", proving_avg);
     println!("Average verifying time: {:?} seconds", verifying_avg);
-}
-
-fn read_params(file_path: &str) -> MPCParameters {
-    let reader = File::open(file_path).expect(format!("file:{} open failed", file_path).as_str());
-    return MPCParameters::read(reader, false).expect("params read failed");
-}
-
-fn writer_params(params: &MPCParameters, file_path:&str) {
-    let writer = File::create(file_path).expect(format!("file:{} create failed", file_path).as_str());
-    assert!(params.write(writer).is_ok());
 }

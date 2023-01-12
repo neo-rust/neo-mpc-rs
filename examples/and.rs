@@ -25,7 +25,7 @@ use bellman::{Circuit, ConstraintSystem, SynthesisError};
 // We're going to use the Groth16 proving system.
 use bellman::groth16::{create_random_proof, prepare_verifying_key, verify_proof, Proof};
 
-use phase2::{MPCParameters};
+use phase2::{clean_params, MPCParameters, read_params, writer_params};
 
 /// This is an implementation of And-circuit
 fn and<S: PrimeField>(xl: bool, xr: bool) -> S {
@@ -153,8 +153,10 @@ fn main() {
         "first_phase2_paramter",
         "second_phase2_paramter",
     ];
+    for index in 0..fp_phase2_paramters.len() - 1 {
+       clean_params(fp_phase2_paramters[index]);
+    }
     let mut my_contribution = Vec::new();
-
     let fp_old_params = fp_phase2_paramters[0];
     let old_params = params.clone();
     writer_params(&old_params, fp_old_params);
@@ -226,16 +228,4 @@ fn main() {
         verifying_avg.subsec_nanos() as f64 / 1_000_000_000f64 + (verifying_avg.as_secs() as f64);
     println!("Average proving time: {:?} seconds", proving_avg);
     println!("Average verifying time: {:?} seconds", verifying_avg);
-}
-
-fn read_params(file_path: &str) -> MPCParameters {
-    let reader =
-        File::open(file_path).expect(format!("file:{} open failed", file_path).as_str());
-    return MPCParameters::read(reader, false).expect("params read failed");
-}
-
-fn writer_params(params: &MPCParameters, file_path: &str) {
-    let writer =
-        File::create(file_path).expect(format!("file:{} create failed", file_path).as_str());
-    assert!(params.write(writer).is_ok());
 }
