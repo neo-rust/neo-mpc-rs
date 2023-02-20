@@ -25,7 +25,7 @@ fn main() {
         xr: None,
         constants: &constants,
     };
-    let evaluator = Evaluator::new(c, &mut rng).unwrap();
+    let evaluator = Evaluator::mpc_new(c, &mut rng).unwrap();
     evaluator.verify_contribution(AndDemo::<Scalar> {
         xl: None,
         xr: None,
@@ -49,7 +49,7 @@ fn main() {
         xr: None,
         constants: &constants
     };
-    let evaluator = Evaluator::new(c, &mut rng).unwrap();
+    let evaluator = Evaluator::mpc_new(c, &mut rng).unwrap();
     evaluator.verify_contribution(MiMCDemo::<Scalar> {
         xl: None,
         xr: None,
@@ -76,7 +76,7 @@ fn main() {
         constants: &constants,
     };
 
-    let evaluator = Evaluator::new(c, &mut rng).unwrap();
+    let evaluator = Evaluator::mpc_new(c, &mut rng).unwrap();
     evaluator.verify_contribution(RangeDemo::<Scalar> {
         a: Some(1u64.into()),
         w: Some(8u64.into()),

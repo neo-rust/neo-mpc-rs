@@ -35,7 +35,7 @@ pub struct Evaluator {
 }
 
 impl Evaluator {
-    pub fn new<C: Circuit<Scalar>, R: RngCore>(circuit: C, rng: &mut R) -> Result<Evaluator, SynthesisError> {
+    pub fn mpc_new<C: Circuit<Scalar>, R: RngCore>(circuit: C, rng: &mut R) -> Result<Evaluator, SynthesisError> {
         // MPC process
         println!("Creating parameters...");
         // Create parameters for our circuit
