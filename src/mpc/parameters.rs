@@ -201,7 +201,7 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use ff::{Field, PrimeField};
 use rand::SeedableRng;
 
-use std::{fs, fs::File, io::{self, BufReader, Read, Write}, sync::Arc};
+use std::{fs::File, io::{self, BufReader, Read, Write}, sync::Arc};
 
 use group::{prime::PrimeCurveAffine, Group};
 use pairing::{group::Wnaf, PairingCurveAffine};
@@ -1387,20 +1387,4 @@ pub fn contains_contribution(contributions: &[[u8; 64]], my_contribution: &[u8; 
     }
 
     return false;
-}
-
-pub fn read_params(file_path: &str) -> MPCParameters {
-    let reader =
-        File::open(file_path).expect(format!("file:{} open failed", file_path).as_str());
-    return MPCParameters::read(reader, false).expect("params read failed");
-}
-
-pub fn writer_params(params: &MPCParameters, file_path: &str) {
-    let writer =
-        File::create(file_path).expect(format!("file:{} create failed", file_path).as_str());
-    assert!(params.write(writer).is_ok());
-}
-
-pub fn clean_params(file_path: &str){
-    fs::remove_file(file_path).expect(format!("file:{} remove failed", file_path).as_str());
 }

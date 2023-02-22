@@ -8,38 +8,13 @@ use ff::Field;
 use bls12_381::{Scalar};
 
 use phase2::{
-    circuit::{
-        and::{and, AndDemo}, 
-        mimc::{mimc, MiMCDemo}, 
-        range::{range, RangeDemo},
-    },
-    evaluate::Evaluator
+    functions::{MiMCDemo},
+    mpc::{MPCWork}
 };
 
 fn main() {
     let mut rng = thread_rng();
-    // And
-    let constants = None;
-    let c = AndDemo::<Scalar> {
-        xl: None,
-        xr: None,
-        constants: &constants,
-    };
-    let evaluator = Evaluator::mpc_new(c, &mut rng).unwrap();
-    evaluator.verify_contribution(AndDemo::<Scalar> {
-        xl: None,
-        xr: None,
-        constants: &constants,
-    });
-    let flag = false;
-    let image = and::<Scalar>(flag, true);
-    evaluator.evaluate_circuit(AndDemo {
-        xl: Some(flag),
-        xr: Some(true),
-        constants: &Some(image),
-    }, &[image], &mut rng);
-
-    // Mimc
+    // Prepare circuit
     const MIMC_ROUNDS: usize = 322;
     let constants = (0..MIMC_ROUNDS)
         .map(|_| Scalar::random(&mut rng))
@@ -49,50 +24,20 @@ fn main() {
         xr: None,
         constants: &constants
     };
-    let evaluator = Evaluator::mpc_new(c, &mut rng).unwrap();
-    evaluator.verify_contribution(MiMCDemo::<Scalar> {
-        xl: None,
-        xr: None,
-        constants: &constants,
-    });
-
-    let xl = Scalar::random(&mut rng);
-    let xr = Scalar::random(&mut rng);
-    let image = mimc(xl, xr, &constants);
-    evaluator.evaluate_circuit(MiMCDemo {
-        xl: Some(xl),
-        xr: Some(xr),
-        constants: &constants,
-    }, &[image], &mut rng);
-
-    // Range
-    let constants = Some([0u64.into(), 0u64.into(), 0u64.into()]);
-    let c = RangeDemo::<Scalar> {
-        a: Some(1u64.into()),
-        w: Some(8u64.into()),
-        w_array: Some(vec![0u64.into(), 0u64.into(), 0u64.into(), 1u64.into()]),
-        not_all_zeros: Some(0u64.into()),
-        cr_array: Some(vec![0u64.into(), 0u64.into(), 0u64.into()]),
-        constants: &constants,
-    };
-
-    let evaluator = Evaluator::mpc_new(c, &mut rng).unwrap();
-    evaluator.verify_contribution(RangeDemo::<Scalar> {
-        a: Some(1u64.into()),
-        w: Some(8u64.into()),
-        w_array: Some(vec![0u64.into(), 0u64.into(), 0u64.into(), 1u64.into()]),
-        not_all_zeros: Some(0u64.into()),
-        cr_array: Some(vec![0u64.into(), 0u64.into(), 0u64.into()]),
-        constants: &constants,
-    });
-
-    let image = range::<Scalar>(2u64.into(), 1u64.into(), 1u64.into());
-    evaluator.evaluate_circuit(RangeDemo {
-        a: Some(1u64.into()),
-        w: Some(9u64.into()),
-        w_array: Some(vec![1u64.into(), 0u64.into(), 0u64.into(), 1u64.into()]),
-        not_all_zeros: Some(1u64.into()),
-        cr_array: Some(vec![1u64.into(), 1u64.into(), 1u64.into()]),
-        constants: &Some(image)
-    }, &image, &mut rng);
+    // Init MPC
+    let mut mpc = MPCWork::new(c).unwrap();
+    // Contribute
+    let mut contrib = mpc.contribute(&mut rng);
+    mpc.write_params_to("parameters_0");
+    for i in 0..3 {
+        let mut mpc = MPCWork::read_params_from(format!("parameters_{}", i).as_str()).unwrap();
+        let c = MiMCDemo::<Scalar> {
+            xl: None,
+            xr: None,
+            constants: &constants
+        };
+        mpc.verify_contribution(c, contrib);
+        contrib = mpc.contribute(&mut rng);
+        mpc.write_params_to(format!("parameters_{}", i + 1).as_str());
+    }
 }
