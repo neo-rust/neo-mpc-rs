@@ -406,3 +406,376 @@ impl Bytes4 {
         })
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::Bytes4;
+    use crate::types::Boolean;
+    use crate::helpers::MultiEq;
+    use bellman::gadgets::test::TestConstraintSystem;
+    use bellman::ConstraintSystem;
+    use bls12_381::Scalar;
+    use ff::Field;
+    use rand_core::{RngCore, SeedableRng};
+    use rand_xorshift::XorShiftRng;
+
+    #[test]
+    fn test_bytes4_from_bits_be() {
+        let mut rng = XorShiftRng::from_seed([
+            0x59, 0x62, 0xbe, 0x5d, 0x76, 0x3d, 0x31, 0x8d, 0x17, 0xdb, 0x37, 0x32, 0x54, 0x06,
+            0xbc, 0xe5,
+        ]);
+
+        for _ in 0..1000 {
+            let v = (0..32)
+                .map(|_| Boolean::constant(rng.next_u32() % 2 != 0))
+                .collect::<Vec<_>>();
+
+            let b = Bytes4::from_bits_be(&v);
+
+            for (i, bit) in b.bits.iter().enumerate() {
+                match *bit {
+                    Boolean::Constant(bit) => {
+                        assert!(bit == ((b.value.unwrap() >> i) & 1 == 1));
+                    }
+                    _ => unreachable!(),
+                }
+            }
+
+            let expected_to_be_same = b.into_bits_be();
+
+            for x in v.iter().zip(expected_to_be_same.iter()) {
+                match x {
+                    (&Boolean::Constant(true), &Boolean::Constant(true)) => {}
+                    (&Boolean::Constant(false), &Boolean::Constant(false)) => {}
+                    _ => unreachable!(),
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_bytes4_from_bits() {
+        let mut rng = XorShiftRng::from_seed([
+            0x59, 0x62, 0xbe, 0x5d, 0x76, 0x3d, 0x31, 0x8d, 0x17, 0xdb, 0x37, 0x32, 0x54, 0x06,
+            0xbc, 0xe5,
+        ]);
+
+        for _ in 0..1000 {
+            let v = (0..32)
+                .map(|_| Boolean::constant(rng.next_u32() % 2 != 0))
+                .collect::<Vec<_>>();
+
+            let b = Bytes4::from_bits(&v);
+
+            for (i, bit) in b.bits.iter().enumerate() {
+                match *bit {
+                    Boolean::Constant(bit) => {
+                        assert!(bit == ((b.value.unwrap() >> i) & 1 == 1));
+                    }
+                    _ => unreachable!(),
+                }
+            }
+
+            let expected_to_be_same = b.into_bits();
+
+            for x in v.iter().zip(expected_to_be_same.iter()) {
+                match x {
+                    (&Boolean::Constant(true), &Boolean::Constant(true)) => {}
+                    (&Boolean::Constant(false), &Boolean::Constant(false)) => {}
+                    _ => unreachable!(),
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_bytes4_xor() {
+        let mut rng = XorShiftRng::from_seed([
+            0x59, 0x62, 0xbe, 0x5d, 0x76, 0x3d, 0x31, 0x8d, 0x17, 0xdb, 0x37, 0x32, 0x54, 0x06,
+            0xbc, 0xe5,
+        ]);
+
+        for _ in 0..1000 {
+            let mut cs = TestConstraintSystem::<Scalar>::new();
+
+            let a = rng.next_u32();
+            let b = rng.next_u32();
+            let c = rng.next_u32();
+
+            let mut expected = a ^ b ^ c;
+
+            let a_bit = Bytes4::alloc(cs.namespace(|| "a_bit"), Some(a)).unwrap();
+            let b_bit = Bytes4::constant(b);
+            let c_bit = Bytes4::alloc(cs.namespace(|| "c_bit"), Some(c)).unwrap();
+
+            let r = a_bit.xor(cs.namespace(|| "first xor"), &b_bit).unwrap();
+            let r = r.xor(cs.namespace(|| "second xor"), &c_bit).unwrap();
+
+            assert!(cs.is_satisfied());
+
+            assert!(r.value == Some(expected));
+
+            for b in r.bits.iter() {
+                match *b {
+                    Boolean::Is(ref b) => {
+                        assert!(b.get_value().unwrap() == (expected & 1 == 1));
+                    }
+                    Boolean::Not(ref b) => {
+                        assert!(b.get_value().unwrap() != (expected & 1 == 1));
+                    }
+                    Boolean::Constant(b) => {
+                        assert!(b == (expected & 1 == 1));
+                    }
+                }
+
+                expected >>= 1;
+            }
+        }
+    }
+
+    #[test]
+    fn test_bytes4_addmany_constants() {
+        let mut rng = XorShiftRng::from_seed([
+            0x59, 0x62, 0xbe, 0x5d, 0x76, 0x3d, 0x31, 0x8d, 0x17, 0xdb, 0x37, 0x32, 0x54, 0x06,
+            0xbc, 0xe5,
+        ]);
+
+        for _ in 0..1000 {
+            let mut cs = TestConstraintSystem::<Scalar>::new();
+
+            let a = rng.next_u32();
+            let b = rng.next_u32();
+            let c = rng.next_u32();
+
+            let a_bit = Bytes4::constant(a);
+            let b_bit = Bytes4::constant(b);
+            let c_bit = Bytes4::constant(c);
+
+            let mut expected = a.wrapping_add(b).wrapping_add(c);
+
+            let r = {
+                let mut cs = MultiEq::new(&mut cs);
+                let r =
+                    Bytes4::addmany(cs.namespace(|| "addition"), &[a_bit, b_bit, c_bit]).unwrap();
+                r
+            };
+
+            assert!(r.value == Some(expected));
+
+            for b in r.bits.iter() {
+                match *b {
+                    Boolean::Is(_) => panic!(),
+                    Boolean::Not(_) => panic!(),
+                    Boolean::Constant(b) => {
+                        assert!(b == (expected & 1 == 1));
+                    }
+                }
+
+                expected >>= 1;
+            }
+        }
+    }
+
+    #[test]
+    #[allow(clippy::many_single_char_names)]
+    fn test_bytes4_addmany() {
+        let mut rng = XorShiftRng::from_seed([
+            0x59, 0x62, 0xbe, 0x5d, 0x76, 0x3d, 0x31, 0x8d, 0x17, 0xdb, 0x37, 0x32, 0x54, 0x06,
+            0xbc, 0xe5,
+        ]);
+
+        for _ in 0..1000 {
+            let mut cs = TestConstraintSystem::<Scalar>::new();
+
+            let a = rng.next_u32();
+            let b = rng.next_u32();
+            let c = rng.next_u32();
+            let d = rng.next_u32();
+
+            let mut expected = (a ^ b).wrapping_add(c).wrapping_add(d);
+
+            let a_bit = Bytes4::alloc(cs.namespace(|| "a_bit"), Some(a)).unwrap();
+            let b_bit = Bytes4::constant(b);
+            let c_bit = Bytes4::constant(c);
+            let d_bit = Bytes4::alloc(cs.namespace(|| "d_bit"), Some(d)).unwrap();
+
+            let r = a_bit.xor(cs.namespace(|| "xor"), &b_bit).unwrap();
+            let r = {
+                let mut cs = MultiEq::new(&mut cs);
+                Bytes4::addmany(cs.namespace(|| "addition"), &[r, c_bit, d_bit]).unwrap()
+            };
+
+            assert!(cs.is_satisfied());
+
+            assert!(r.value == Some(expected));
+
+            for b in r.bits.iter() {
+                match *b {
+                    Boolean::Is(ref b) => {
+                        assert!(b.get_value().unwrap() == (expected & 1 == 1));
+                    }
+                    Boolean::Not(ref b) => {
+                        assert!(b.get_value().unwrap() != (expected & 1 == 1));
+                    }
+                    Boolean::Constant(_) => unreachable!(),
+                }
+
+                expected >>= 1;
+            }
+
+            // Flip a bit and see if the addition constraint still works
+            if cs.get("addition/result bit 0/boolean").is_zero_vartime() {
+                cs.set("addition/result bit 0/boolean", Field::one());
+            } else {
+                cs.set("addition/result bit 0/boolean", Field::zero());
+            }
+
+            assert!(!cs.is_satisfied());
+        }
+    }
+
+    #[test]
+    fn test_bytes4_rotr() {
+        let mut rng = XorShiftRng::from_seed([
+            0x59, 0x62, 0xbe, 0x5d, 0x76, 0x3d, 0x31, 0x8d, 0x17, 0xdb, 0x37, 0x32, 0x54, 0x06,
+            0xbc, 0xe5,
+        ]);
+
+        let mut num = rng.next_u32();
+
+        let a = Bytes4::constant(num);
+
+        for i in 0..32 {
+            let b = a.rotr(i);
+            assert_eq!(a.bits.len(), b.bits.len());
+
+            assert!(b.value.unwrap() == num);
+
+            let mut tmp = num;
+            for b in &b.bits {
+                match *b {
+                    Boolean::Constant(b) => {
+                        assert_eq!(b, tmp & 1 == 1);
+                    }
+                    _ => unreachable!(),
+                }
+
+                tmp >>= 1;
+            }
+
+            num = num.rotate_right(1);
+        }
+    }
+
+    #[test]
+    fn test_bytes4_shr() {
+        let mut rng = XorShiftRng::from_seed([
+            0x59, 0x62, 0xbe, 0x5d, 0x76, 0x3d, 0x31, 0x8d, 0x17, 0xdb, 0x37, 0x32, 0x54, 0x06,
+            0xbc, 0xe5,
+        ]);
+
+        for _ in 0..50 {
+            for i in 0..60 {
+                let num = rng.next_u32();
+                let a = Bytes4::constant(num).shr(i);
+                let b = Bytes4::constant(num.wrapping_shr(i as u32));
+
+                assert_eq!(a.value.unwrap(), num.wrapping_shr(i as u32));
+
+                assert_eq!(a.bits.len(), b.bits.len());
+                for (a, b) in a.bits.iter().zip(b.bits.iter()) {
+                    assert_eq!(a.get_value().unwrap(), b.get_value().unwrap());
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_bytes4_sha256_maj() {
+        let mut rng = XorShiftRng::from_seed([
+            0x59, 0x62, 0xbe, 0x5d, 0x76, 0x3d, 0x31, 0x8d, 0x17, 0xdb, 0x37, 0x32, 0x54, 0x06,
+            0xbc, 0xe5,
+        ]);
+
+        for _ in 0..1000 {
+            let mut cs = TestConstraintSystem::<Scalar>::new();
+
+            let a = rng.next_u32();
+            let b = rng.next_u32();
+            let c = rng.next_u32();
+
+            let mut expected = (a & b) ^ (a & c) ^ (b & c);
+
+            let a_bit = Bytes4::alloc(cs.namespace(|| "a_bit"), Some(a)).unwrap();
+            let b_bit = Bytes4::constant(b);
+            let c_bit = Bytes4::alloc(cs.namespace(|| "c_bit"), Some(c)).unwrap();
+
+            let r = Bytes4::sha256_maj(&mut cs, &a_bit, &b_bit, &c_bit).unwrap();
+
+            assert!(cs.is_satisfied());
+
+            assert!(r.value == Some(expected));
+
+            for b in r.bits.iter() {
+                match b {
+                    Boolean::Is(ref b) => {
+                        assert!(b.get_value().unwrap() == (expected & 1 == 1));
+                    }
+                    Boolean::Not(ref b) => {
+                        assert!(b.get_value().unwrap() != (expected & 1 == 1));
+                    }
+                    Boolean::Constant(b) => {
+                        assert!(*b == (expected & 1 == 1));
+                    }
+                }
+
+                expected >>= 1;
+            }
+        }
+    }
+
+    #[test]
+    fn test_bytes4_sha256_ch() {
+        let mut rng = XorShiftRng::from_seed([
+            0x59, 0x62, 0xbe, 0x5d, 0x76, 0x3d, 0x31, 0x8d, 0x17, 0xdb, 0x37, 0x32, 0x54, 0x06,
+            0xbc, 0xe5,
+        ]);
+
+        for _ in 0..1000 {
+            let mut cs = TestConstraintSystem::<Scalar>::new();
+
+            let a = rng.next_u32();
+            let b = rng.next_u32();
+            let c = rng.next_u32();
+
+            let mut expected = (a & b) ^ ((!a) & c);
+
+            let a_bit = Bytes4::alloc(cs.namespace(|| "a_bit"), Some(a)).unwrap();
+            let b_bit = Bytes4::constant(b);
+            let c_bit = Bytes4::alloc(cs.namespace(|| "c_bit"), Some(c)).unwrap();
+
+            let r = Bytes4::sha256_ch(&mut cs, &a_bit, &b_bit, &c_bit).unwrap();
+
+            assert!(cs.is_satisfied());
+
+            assert!(r.value == Some(expected));
+
+            for b in r.bits.iter() {
+                match b {
+                    Boolean::Is(ref b) => {
+                        assert!(b.get_value().unwrap() == (expected & 1 == 1));
+                    }
+                    Boolean::Not(ref b) => {
+                        assert!(b.get_value().unwrap() != (expected & 1 == 1));
+                    }
+                    Boolean::Constant(b) => {
+                        assert!(*b == (expected & 1 == 1));
+                    }
+                }
+
+                expected >>= 1;
+            }
+        }
+    }
+}
