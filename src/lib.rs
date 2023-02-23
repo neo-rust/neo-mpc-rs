@@ -1,3 +1,3 @@
-pub mod circuit;
 pub mod mpc;
-pub mod evaluate;
+pub mod types;
+pub mod functions;

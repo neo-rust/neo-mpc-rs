@@ -1,0 +1,69 @@
+// For randomness (during paramgen and proof generation)
+use rand::RngCore;
+
+// For IO
+use std::{io, fs, fs::File};
+
+// We're going to use the BLS12-381 pairing-friendly elliptic curve.
+use bls12_381::{Scalar};
+
+// We're going to use the Groth16 proving system.
+use bellman::{
+    Circuit,
+    SynthesisError
+};
+
+use super::{
+    MPCParameters,
+    verify_contribution,
+    contains_contribution
+};
+
+pub struct MPCWork {
+    params: MPCParameters
+}
+
+impl MPCWork {
+    pub fn new<C: Circuit<Scalar>>(circuit: C) -> Result<MPCWork, SynthesisError> {
+        let params = MPCParameters::new(circuit).unwrap();
+
+        Ok(MPCWork {
+            params: params
+        })
+    }
+
+    pub fn read_params_from(file_path: &str) -> io::Result<MPCWork> {
+        let reader = File::open(file_path).expect(format!("file:{} open failed", file_path).as_str());
+        let params = MPCParameters::read(reader, false).expect("params read failed");
+
+        Ok(MPCWork {
+            params: params
+        })
+    }
+
+    pub fn write_params_to(&self, file_path: &str) {
+        let writer = File::create(file_path).expect(format!("file:{} create failed", file_path).as_str());
+        assert!(self.params.write(writer).is_ok());
+    }
+
+    pub fn contribute<R: RngCore>(&mut self, rng: &mut R) -> [u8; 64] {
+        let old_params = self.params.clone();
+        let mut new_params = self.params.clone();
+        new_params.contribute(rng);
+        let contrib = verify_contribution(&old_params, &new_params).expect("contribution verify fail");
+        self.params = new_params;
+
+        contrib
+    }
+
+    pub fn verify_contribution<C: Circuit<Scalar>>(&self, circuit: C, contrib: [u8; 64]) {
+        let verification_result = self.params.verify(circuit).unwrap();
+
+        assert!(contains_contribution(&verification_result, &contrib))
+    }
+}
+
+
+pub fn clean_params(file_path: &str){
+    fs::remove_file(file_path).expect(format!("file:{} remove failed", file_path).as_str());
+}
