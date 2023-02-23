@@ -1,5 +1,7 @@
 mod multieq;
+mod range;
 
 pub use self::{
-    multieq::{MultiEq}
+    multieq::{MultiEq},
+    range::{range, RangeDemo}
 };
