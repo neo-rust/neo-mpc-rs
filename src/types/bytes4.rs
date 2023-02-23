@@ -13,14 +13,14 @@ use crate::helpers::MultiEq;
 /// Represents an interpretation of 32 `Boolean` objects as an
 /// unsigned integer.
 #[derive(Clone)]
-pub struct UInt32 {
+pub struct Bytes4 {
     // Least significant bit first
     bits: Vec<Boolean>,
     value: Option<u32>,
 }
 
-impl UInt32 {
-    /// Construct a constant `UInt32` from a `u32`
+impl Bytes4 {
+    /// Construct a constant `Bytes4` from a `u32`
     pub fn constant(value: u32) -> Self {
         let mut bits = Vec::with_capacity(32);
 
@@ -35,13 +35,13 @@ impl UInt32 {
             tmp >>= 1;
         }
 
-        UInt32 {
+        Bytes4 {
             bits,
             value: Some(value),
         }
     }
 
-    /// Allocate a `UInt32` in the constraint system
+    /// Allocate a `Bytes4` in the constraint system
     pub fn alloc<Scalar, CS>(mut cs: CS, value: Option<u32>) -> Result<Self, SynthesisError>
     where
         Scalar: PrimeField,
@@ -72,7 +72,7 @@ impl UInt32 {
             })
             .collect::<Result<Vec<_>, SynthesisError>>()?;
 
-        Ok(UInt32 { bits, value })
+        Ok(Bytes4 { bits, value })
     }
 
     pub fn into_bits_be(self) -> Vec<Boolean> {
@@ -103,19 +103,19 @@ impl UInt32 {
             }
         }
 
-        UInt32 {
+        Bytes4 {
             value,
             bits: bits.iter().rev().cloned().collect(),
         }
     }
 
-    /// Turns this `UInt32` into its little-endian byte order representation.
+    /// Turns this `Bytes4` into its little-endian byte order representation.
     pub fn into_bits(self) -> Vec<Boolean> {
         self.bits
     }
 
     /// Converts a little-endian byte order representation of bits into a
-    /// `UInt32`.
+    /// `Bytes4`.
     pub fn from_bits(bits: &[Boolean]) -> Self {
         assert_eq!(bits.len(), 32);
 
@@ -156,7 +156,7 @@ impl UInt32 {
             }
         }
 
-        UInt32 {
+        Bytes4 {
             value,
             bits: new_bits,
         }
@@ -174,7 +174,7 @@ impl UInt32 {
             .cloned()
             .collect();
 
-        UInt32 {
+        Bytes4 {
             bits: new_bits,
             value: self.value.map(|v| v.rotate_right(by as u32)),
         }
@@ -194,7 +194,7 @@ impl UInt32 {
             .cloned()
             .collect();
 
-        UInt32 {
+        Bytes4 {
             bits: new_bits,
             value: self.value.map(|v| v >> by as u32),
         }
@@ -228,7 +228,7 @@ impl UInt32 {
             .map(|(i, ((a, b), c))| circuit_fn(&mut cs, i, a, b, c))
             .collect::<Result<_, _>>()?;
 
-        Ok(UInt32 {
+        Ok(Bytes4 {
             bits,
             value: new_value,
         })
@@ -278,7 +278,7 @@ impl UInt32 {
         )
     }
 
-    /// XOR this `UInt32` with another `UInt32`
+    /// XOR this `Bytes4` with another `Bytes4`
     pub fn xor<Scalar, CS>(&self, mut cs: CS, other: &Self) -> Result<Self, SynthesisError>
     where
         Scalar: PrimeField,
@@ -297,13 +297,13 @@ impl UInt32 {
             .map(|(i, (a, b))| Boolean::xor(cs.namespace(|| format!("xor of bit {}", i)), a, b))
             .collect::<Result<_, _>>()?;
 
-        Ok(UInt32 {
+        Ok(Bytes4 {
             bits,
             value: new_value,
         })
     }
 
-    /// Perform modular addition of several `UInt32` objects.
+    /// Perform modular addition of several `Bytes4` objects.
     pub fn addmany<Scalar, CS, M>(mut cs: M, operands: &[Self]) -> Result<Self, SynthesisError>
     where
         Scalar: PrimeField,
@@ -364,7 +364,7 @@ impl UInt32 {
             // We can just return a constant, rather than
             // unpacking the result into allocated bits.
 
-            return Ok(UInt32::constant(result));
+            return Ok(Bytes4::constant(result));
         }
 
         // Storage area for the resulting bits
@@ -400,7 +400,7 @@ impl UInt32 {
         // Discard carry bits that we don't care about
         result_bits.truncate(32);
 
-        Ok(UInt32 {
+        Ok(Bytes4 {
             bits: result_bits,
             value: modular_value,
         })

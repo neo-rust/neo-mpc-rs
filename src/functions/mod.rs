@@ -1,10 +1,8 @@
-mod and;
 mod mimc;
 mod range;
 mod sha256;
 
 pub use self::{
-    and::{and, AndDemo}, 
     mimc::{mimc, MiMCDemo}, 
     range::{range, RangeDemo},
     sha256::{sha256, sha256_block_no_padding, get_sha256_iv, sha256_compression_function}

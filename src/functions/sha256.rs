@@ -6,7 +6,7 @@
 use ff::{PrimeField};
 use bellman::{ConstraintSystem, SynthesisError};
 
-use crate::types::{Boolean, UInt32};
+use crate::types::{Boolean, Bytes4};
 use crate::helpers::MultiEq;
 
 #[allow(clippy::unreadable_literal)]
@@ -73,16 +73,16 @@ where
     Ok(cur.into_iter().flat_map(|e| e.into_bits_be()).collect())
 }
 
-pub fn get_sha256_iv() -> Vec<UInt32> {
-    IV.iter().map(|&v| UInt32::constant(v)).collect()
+pub fn get_sha256_iv() -> Vec<Bytes4> {
+    IV.iter().map(|&v| Bytes4::constant(v)).collect()
 }
 
 #[allow(clippy::many_single_char_names)]
 pub fn sha256_compression_function<Scalar, CS>(
     cs: CS,
     input: &[Boolean],
-    current_hash_value: &[UInt32],
-) -> Result<Vec<UInt32>, SynthesisError>
+    current_hash_value: &[Bytes4],
+) -> Result<Vec<Bytes4>, SynthesisError>
 where
     Scalar: PrimeField,
     CS: ConstraintSystem<Scalar>,
@@ -92,7 +92,7 @@ where
 
     let mut w = input
         .chunks(32)
-        .map(|e| UInt32::from_bits_be(e))
+        .map(|e| Bytes4::from_bits_be(e))
         .collect::<Vec<_>>();
 
     // We can save some constraints by combining some of
@@ -112,7 +112,7 @@ where
         s1 = s1.xor(cs.namespace(|| "first xor for s1"), &w[i - 2].rotr(19))?;
         s1 = s1.xor(cs.namespace(|| "second xor for s1"), &w[i - 2].shr(10))?;
 
-        let tmp = UInt32::addmany(
+        let tmp = Bytes4::addmany(
             cs.namespace(|| "computation of w[i]"),
             &[w[i - 16].clone(), s0, w[i - 7].clone(), s1],
         )?;
@@ -124,12 +124,12 @@ where
     assert_eq!(w.len(), 64);
 
     enum Maybe {
-        Deferred(Vec<UInt32>),
-        Concrete(UInt32),
+        Deferred(Vec<Bytes4>),
+        Concrete(Bytes4),
     }
 
     impl Maybe {
-        fn compute<Scalar, CS, M>(self, cs: M, others: &[UInt32]) -> Result<UInt32, SynthesisError>
+        fn compute<Scalar, CS, M>(self, cs: M, others: &[Bytes4]) -> Result<Bytes4, SynthesisError>
         where
             Scalar: PrimeField,
             CS: ConstraintSystem<Scalar>,
@@ -139,7 +139,7 @@ where
                 Maybe::Concrete(ref v) => return Ok(v.clone()),
                 Maybe::Deferred(mut v) => {
                     v.extend(others.iter().cloned());
-                    UInt32::addmany(cs, &v)?
+                    Bytes4::addmany(cs, &v)?
                 }
             })
         }
@@ -164,14 +164,14 @@ where
         s1 = s1.xor(cs.namespace(|| "second xor for s1"), &new_e.rotr(25))?;
 
         // ch := (e and f) xor ((not e) and g)
-        let ch = UInt32::sha256_ch(cs.namespace(|| "ch"), &new_e, &f, &g)?;
+        let ch = Bytes4::sha256_ch(cs.namespace(|| "ch"), &new_e, &f, &g)?;
 
         // temp1 := h + S1 + ch + k[i] + w[i]
         let temp1 = vec![
             h.clone(),
             s1,
             ch,
-            UInt32::constant(ROUND_CONSTANTS[i]),
+            Bytes4::constant(ROUND_CONSTANTS[i]),
             w[i].clone(),
         ];
 
@@ -182,7 +182,7 @@ where
         s0 = s0.xor(cs.namespace(|| "second xor for s0"), &new_a.rotr(22))?;
 
         // maj := (a and b) xor (a and c) xor (b and c)
-        let maj = UInt32::sha256_maj(cs.namespace(|| "maj"), &new_a, &b, &c)?;
+        let maj = Bytes4::sha256_maj(cs.namespace(|| "maj"), &new_a, &b, &c)?;
 
         // temp2 := S0 + maj
         let temp2 = vec![s0, maj];
@@ -231,17 +231,17 @@ where
         &[current_hash_value[0].clone()],
     )?;
 
-    let h1 = UInt32::addmany(
+    let h1 = Bytes4::addmany(
         cs.namespace(|| "new h1"),
         &[current_hash_value[1].clone(), b],
     )?;
 
-    let h2 = UInt32::addmany(
+    let h2 = Bytes4::addmany(
         cs.namespace(|| "new h2"),
         &[current_hash_value[2].clone(), c],
     )?;
 
-    let h3 = UInt32::addmany(
+    let h3 = Bytes4::addmany(
         cs.namespace(|| "new h3"),
         &[current_hash_value[3].clone(), d],
     )?;
@@ -251,17 +251,17 @@ where
         &[current_hash_value[4].clone()],
     )?;
 
-    let h5 = UInt32::addmany(
+    let h5 = Bytes4::addmany(
         cs.namespace(|| "new h5"),
         &[current_hash_value[5].clone(), f],
     )?;
 
-    let h6 = UInt32::addmany(
+    let h6 = Bytes4::addmany(
         cs.namespace(|| "new h6"),
         &[current_hash_value[6].clone(), g],
     )?;
 
-    let h7 = UInt32::addmany(
+    let h7 = Bytes4::addmany(
         cs.namespace(|| "new h7"),
         &[current_hash_value[7].clone(), h],
     )?;
