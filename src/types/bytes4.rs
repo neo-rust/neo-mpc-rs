@@ -8,7 +8,7 @@ use ff::{PrimeField};
 use bellman::{ConstraintSystem, LinearCombination, SynthesisError};
 
 use super::{Bit, Boolean};
-use crate::helpers::MultiEq;
+use crate::helpers::multieq::MultiEq;
 
 /// Represents an interpretation of 32 `Boolean` objects as an
 /// unsigned integer.
@@ -411,7 +411,7 @@ impl Bytes4 {
 mod test {
     use super::Bytes4;
     use crate::types::Boolean;
-    use crate::helpers::MultiEq;
+    use crate::helpers::multieq::MultiEq;
     use bellman::gadgets::test::TestConstraintSystem;
     use bellman::ConstraintSystem;
     use bls12_381::Scalar;

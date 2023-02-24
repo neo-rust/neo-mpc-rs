@@ -1,7 +1,4 @@
-mod multieq;
-mod range;
-
-pub use self::{
-    multieq::{MultiEq},
-    range::{range, RangeDemo}
-};
+pub mod multieq;
+pub mod multipack;
+pub mod lookup;
+pub mod range;

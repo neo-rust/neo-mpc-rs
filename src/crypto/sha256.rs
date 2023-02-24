@@ -7,7 +7,7 @@ use ff::{PrimeField};
 use bellman::{ConstraintSystem, SynthesisError};
 
 use crate::types::{Boolean, Bytes4};
-use crate::helpers::MultiEq;
+use crate::helpers::multieq::MultiEq;
 
 #[allow(clippy::unreadable_literal)]
 const ROUND_CONSTANTS: [u32; 64] = [
@@ -73,7 +73,7 @@ where
     Ok(cur.into_iter().flat_map(|e| e.into_bits_be()).collect())
 }
 
-pub fn get_sha256_iv() -> Vec<Bytes4> {
+fn get_sha256_iv() -> Vec<Bytes4> {
     IV.iter().map(|&v| Bytes4::constant(v)).collect()
 }
 
@@ -275,14 +275,14 @@ mod test {
     use hex_literal::hex;
     use rand_core::{RngCore, SeedableRng};
     use rand_xorshift::XorShiftRng;
-    use crate::{
-        types::{Bit, Boolean},
-        crypto::{sha256, get_sha256_iv, sha256_compression_function}
-    };
+
     use bellman::{
         ConstraintSystem,
         gadgets::test::{TestConstraintSystem}
     };
+
+    use crate::types::{Bit, Boolean};
+    use super::*;
 
     #[test]
     fn test_sha256_blank_hash() {
