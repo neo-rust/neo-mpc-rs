@@ -1,10 +1,14 @@
-use std::slice::range;
+use std::convert::TryInto;
+use std::ops::BitAnd;
 // Bring in some tools for using finite fiels
 use ff::{PrimeField};
 
 // We'll use these interfaces to construct our circuit.
 use bellman::{Circuit, ConstraintSystem, LinearCombination, SynthesisError, Variable};
 use bellman::domain::Scalar;
+use rand::thread_rng;
+use crate::helpers::range;
+use crate::mpc::MPCWork;
 
 /*pub struct RangeA {
     a: Option<u64>,
@@ -17,7 +21,7 @@ use bellman::domain::Scalar;
     crArray:Option<[u64;4]>,
 }*/
 
-pub struct Range {
+pub struct Range{
     a: Variable,
     b: Variable,
     w:Variable,
@@ -26,11 +30,10 @@ pub struct Range {
     not_all_zeros:Variable,
     less_or_equal:u64,
     less:u64,
-
 }
 
 impl Range{
-    pub fn alloc<Scalar, CS>(mut cs: CS, a:Option<(u64,bool)>,b: Option<(u64,bool)>,w:Option<(u64,bool)>,wArray:Option<([u64;4],bool)>,crArray:Option<([u64;4],bool)>,less_or_equal:u64,less:u64,not_all_zeros:Option<(u64,bool)>) -> Result<Self, SynthesisError>
+    pub fn alloc<Scalar, CS>(mut cs: CS, a:Option<(u64,bool)>,b: Option<(u64,bool)>,w:Option<(u64,bool)>,wArray:Option<([u64;64],bool)>,crArray:Option<([u64;64],bool)>,less_or_equal:u64,less:u64,not_all_zeros:Option<(u64,bool)>) -> Result<Self, SynthesisError>
         where
             Scalar: PrimeField,
             CS: ConstraintSystem<Scalar>,
@@ -70,7 +73,9 @@ impl Range{
                 true =>cs.alloc(||"",||Ok(Scalar::from(*crArray.unwrap().0.get(i).unwrap()))),
                 false =>cs.alloc_input(||"",||Ok(Scalar::from(*crArray.unwrap().0.get(i).unwrap()))),
             };
+            crArray_var.push(cArray_v.unwrap());
         }
+
         Ok(Range {
             a: a_v,
             b: b_v,
@@ -88,13 +93,24 @@ pub fn less_or_equal<Scalar, CS>(mut cs: CS,a:(u64,bool),b:(u64,bool)) -> Result
         Scalar: PrimeField,
         CS: ConstraintSystem<Scalar>,
 {
-    let namespace = cs.namespace("aa" |);
-
-    let w= 1<<(64-1u64)+b-a;
-    let r=Range::alloc(namespace,Option(a),Option(b),Option((w,a.1&b.1)),x,y,1,1,Option(,a.1&b.1)).expect("");
-
-    let namespace = cs.namespace("aa" |);
-    Range::range(cs,&r);
+    let w= ((1<<(64-1u64))+(b.0-a.0)) as u64;
+    let mut wArray=[0].repeat(64);
+    let mut i=0;
+    let mut values=w.clone();
+    while i < wArray.len() {
+        wArray[i]=values & 1;
+        values>>=1;
+        i += 1;
+    }
+    let mut cArray=[0].repeat(64);
+    cArray[0]=wArray[0];
+    let j=1;
+    while j < wArray.len(){
+        cArray[j]=u64::from(wArray[j]|cArray[j-1]);
+    }
+    let not_all_zeros=cArray.last().unwrap().clone();
+    let r=Range::alloc(cs.namespace(|| "less_or_equal_alloc"),Some(a),Some(b),Some((w,a.1&b.1)),Some((wArray.try_into().unwrap(),a.1&b.1)),Some((cArray.try_into().unwrap(),a.1&b.1)),1,1,Some((not_all_zeros,a.1&b.1))).expect("range alloc error");
+    return Range::range(cs.namespace(|| "less_or_equal_alloc"),&r);
 }
 
 pub fn less<Scalar, CS>(mut cs: CS, input: &Range, ) -> Result<(), SynthesisError>
@@ -131,12 +147,13 @@ pub fn range<Scalar, CS>(mut cs: CS, input: &Range) -> Result<(), SynthesisError
 {
     let a=input.a;
     let b=input.b;
-    let n=input.wArray.len();
-    let exp2n =1<<(n-1u64);
-    let wArray=*input.wArray;
-    let crArray=*input.crArray;
+    let n=input.wArray.len() as u64;
+    let w=input.w;
+    let exp2n =1<<(n-1);
+    let wArray=&input.wArray;
+    let crArray=&input.crArray;
     let not_all_zeros=input.not_all_zeros;
-    let less_or_equal=input.less_or_equal;
+    let less_or_equal= input.less_or_equal;
     let less=input.less;
     cs.enforce(
         || "w=2^n+b-a",
@@ -173,7 +190,7 @@ pub fn range<Scalar, CS>(mut cs: CS, input: &Range) -> Result<(), SynthesisError
         |lc| lc+crArray[0],
     );
 
-    for i in 1..crArray_var.len() {
+    for i in 1..crArray.len() {
         cs.enforce(
             || "(cr_(i-1)-1)(wi-1)=1-cr_i",
             |lc| lc + crArray[i-1]-CS::one(),
@@ -192,7 +209,7 @@ pub fn range<Scalar, CS>(mut cs: CS, input: &Range) -> Result<(), SynthesisError
     cs.enforce(
         || "wn=less_or_equal*wn",
         |lc| lc + wArray[wArray.len()-1],
-        |lc| lc + Scalar::from(less_or_equal),
+        |lc| lc + (Scalar::from(less_or_equal), CS::one()),
         |lc| lc+wArray[wArray.len()-1],
     );
 
@@ -200,8 +217,65 @@ pub fn range<Scalar, CS>(mut cs: CS, input: &Range) -> Result<(), SynthesisError
         || "wn*less_or_equal=less",
         |lc| lc + wArray[wArray.len()-1],
         |lc| lc + not_all_zeros,
-        |lc| lc+Scalar::from(less),
+        |lc| lc+(Scalar::from(less), CS::one()),
     );
     Ok(())
 }
+}
+
+
+#[cfg(test)]
+mod test {
+    use crate::mpc::{MPCWork, clean_params};
+    use rand::thread_rng;
+    use ff::{PrimeField};
+    use bls12_381::{Scalar};
+    use bellman::{Circuit, ConstraintSystem, SynthesisError};
+    use crate::helpers::range::Range;
+
+    #[test]
+    fn test_mpc_work() {
+        let mut rng = thread_rng();
+        // Prepare circuit
+        let constants = None;
+        let c = TestDemo::<Scalar> {
+            xl: Some(5),
+            xr: Some(6),
+            constants: &constants,
+        };
+        // Init MPC
+        let mut mpc = MPCWork::new(c).unwrap();
+        // Contribute
+        let mut contrib = mpc.contribute(&mut rng);
+        mpc.write_params_to("parameters_0");
+        for i in 0..3 {
+            let mut mpc = MPCWork::read_params_from(format!("parameters_{}", i).as_str()).unwrap();
+            let c = TestDemo::<Scalar> {
+                xl: Some(5),
+                xr: Some(6),
+                constants: &constants,
+            };
+            mpc.verify_contribution(c, contrib);
+            contrib = mpc.contribute(&mut rng);
+            mpc.write_params_to(format!("parameters_{}", i + 1).as_str());
+        }
+
+        for i in 0..4 {
+            clean_params(format!("parameters_{}", i).as_str());
+        }
+    }
+
+    struct TestDemo<'a, S: PrimeField> {
+        xl: Option<u64>,
+        xr: Option<u64>,
+        constants: &'a Option<S>,
+    }
+
+    impl<'a, S: PrimeField> Circuit<S> for TestDemo<'a, S> {
+        fn synthesize<CS: ConstraintSystem<S>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
+            Range::less_or_equal(cs,(self.xl.unwrap(),true),(self.xr.unwrap(),true))
+        }
+    }
+
+
 }
