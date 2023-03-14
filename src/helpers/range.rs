@@ -57,16 +57,16 @@ impl Range {
         let mut w_array_var = vec![];
         for i in 0 .. w_array.0.len(){
             let w_array_v = match w_array.1 {
-                true => cs.alloc(|| "", || Ok(Scalar::from((w_array.0)[i]))),
-                false => cs.alloc_input(|| "", || Ok(Scalar::from(w_array.0[i]))),
+                true => cs.alloc(|| format!("w_array_{}", i), || Ok(Scalar::from((w_array.0)[i]))),
+                false => cs.alloc_input(|| format!("w_array_{}", i), || Ok(Scalar::from(w_array.0[i]))),
             };
             w_array_var.push(w_array_v.unwrap());
         }
         let mut cr_array_var = vec![];
         for i in 0 .. cr_array.0.len() {
             let c_array_v = match cr_array.1 {
-                true => cs.alloc(|| "", || Ok(Scalar::from(cr_array.0[i]))),
-                false => cs.alloc_input(|| "", || Ok(Scalar::from(cr_array.0[i]))),
+                true => cs.alloc(|| format!("cr_array_{}", i), || Ok(Scalar::from(cr_array.0[i]))),
+                false => cs.alloc_input(|| format!("cr_array_{}", i), || Ok(Scalar::from(cr_array.0[i]))),
             };
             cr_array_var.push(c_array_v.unwrap());
         }
@@ -122,16 +122,16 @@ impl Range {
         let mut w_array_var = vec![];
         for i in 0 .. w_array.0.len(){
             let w_array_v = match w_array.1 {
-                true => cs.alloc(|| "", || Ok(Scalar::from(u64::from(w_array.0[i])))),
-                false => cs.alloc_input(|| "", || Ok(Scalar::from(u64::from(w_array.0[i])))),
+                true => cs.alloc(|| format!("w_array_{}", i), || Ok(Scalar::from((w_array.0)[i].into()))),
+                false => cs.alloc_input(|| format!("w_array_{}", i), || Ok(Scalar::from(w_array.0[i].into()))),
             };
             w_array_var.push(w_array_v.unwrap());
         }
         let mut cr_array_var = vec![];
         for i in 0 .. cr_array.0.len() {
             let c_array_v = match cr_array.1 {
-                true => cs.alloc(|| "", || Ok(Scalar::from(u64::from(cr_array.0[i])))),
-                false => cs.alloc_input(|| "", || Ok(Scalar::from(u64::from(cr_array.0[i])))),
+                true => cs.alloc(|| format!("cr_array_{}", i), || Ok(Scalar::from(cr_array.0[i].into()))),
+                false => cs.alloc_input(|| format!("cr_array_{}", i), || Ok(Scalar::from(cr_array.0[i].into()))),
             };
             cr_array_var.push(c_array_v.unwrap());
         }
@@ -187,16 +187,16 @@ impl Range {
         let mut w_array_var = vec![];
         for i in 0 .. w_array.0.len(){
             let w_array_v = match w_array.1 {
-                true => cs.alloc(|| "", || Ok(Scalar::from(u64::from(w_array.0[i])))),
-                false => cs.alloc_input(|| "", || Ok(Scalar::from(u64::from(w_array.0[i])))),
+                true => cs.alloc(|| format!("w_array_{}", i), || Ok(Scalar::from((w_array.0)[i].into()))),
+                false => cs.alloc_input(|| format!("w_array_{}", i), || Ok(Scalar::from(w_array.0[i].into()))),
             };
             w_array_var.push(w_array_v.unwrap());
         }
         let mut cr_array_var = vec![];
         for i in 0 .. cr_array.0.len() {
             let c_array_v = match cr_array.1 {
-                true => cs.alloc(|| "", || Ok(Scalar::from(u64::from(cr_array.0[i])))),
-                false => cs.alloc_input(|| "", || Ok(Scalar::from(u64::from(cr_array.0[i])))),
+                true => cs.alloc(|| format!("cr_array_{}", i), || Ok(Scalar::from(cr_array.0[i].into()))),
+                false => cs.alloc_input(|| format!("cr_array_{}", i), || Ok(Scalar::from(cr_array.0[i].into()))),
             };
             cr_array_var.push(c_array_v.unwrap());
         }
@@ -252,16 +252,16 @@ impl Range {
         let mut w_array_var = vec![];
         for i in 0 .. w_array.0.len(){
             let w_array_v = match w_array.1 {
-                true => cs.alloc(|| "", || Ok(Scalar::from(u64::from(w_array.0[i])))),
-                false => cs.alloc_input(|| "", || Ok(Scalar::from(u64::from(w_array.0[i])))),
+                true => cs.alloc(|| format!("w_array_{}", i), || Ok(Scalar::from((w_array.0)[i].into()))),
+                false => cs.alloc_input(|| format!("w_array_{}", i), || Ok(Scalar::from(w_array.0[i].into()))),
             };
             w_array_var.push(w_array_v.unwrap());
         }
         let mut cr_array_var = vec![];
         for i in 0 .. cr_array.0.len() {
             let c_array_v = match cr_array.1 {
-                true => cs.alloc(|| "", || Ok(Scalar::from(u64::from(cr_array.0[i])))),
-                false => cs.alloc_input(|| "", || Ok(Scalar::from(u64::from(cr_array.0[i])))),
+                true => cs.alloc(|| format!("cr_array_{}", i), || Ok(Scalar::from(cr_array.0[i].into()))),
+                false => cs.alloc_input(|| format!("cr_array_{}", i), || Ok(Scalar::from(cr_array.0[i].into()))),
             };
             cr_array_var.push(c_array_v.unwrap());
         }
@@ -306,7 +306,7 @@ impl Range {
         }
         lct = lct - w;
         cs.enforce(
-            || "2^0*w0+.......-w=0",
+            || "2^0*w_0+.......-w=0",
             |_| lct,
             |lc| lc + CS::one(),
             |lc| lc,
@@ -314,7 +314,7 @@ impl Range {
     
         for i in 0..w_array.len() {
             cs.enforce(
-                || "w0(1-w0)=0",
+                || format!("w_{0}(1-w_{0})=0", i),
                 |lc| lc + w_array[i],
                 |lc| lc + CS::one() - w_array[i],
                 |lc| lc,
@@ -322,7 +322,7 @@ impl Range {
         }
     
         cs.enforce(
-            || "w0=cr0",
+            || "w_0=cr_0",
             |lc| lc + w_array[0],
             |lc| lc + CS::one(),
             |lc| lc + cr_array[0],
@@ -330,7 +330,7 @@ impl Range {
     
         for i in 1..cr_array.len() {
             cs.enforce(
-                || "(cr_(i-1)-1)(wi-1)=1-cr_i",
+                || format!("(cr_{0}-1)(w_{1}-1)=1-cr_{1}", i-1, i),
                 |lc| lc + cr_array[i-1] - CS::one(),
                 |lc| lc + w_array[i] - CS::one(),
                 |lc| lc + CS::one() - cr_array[i],
@@ -345,14 +345,14 @@ impl Range {
         );
     
         cs.enforce(
-            || "wn=less_or_equal*wn",
+            || "w_n=less_or_equal*w_n",
             |lc| lc + w_array[w_array.len() - 1],
             |lc| lc + (Scalar::from(less_or_equal), CS::one()),
             |lc| lc + w_array[w_array.len() - 1],
         );
     
         cs.enforce(
-            || "wn*less_or_equal=less",
+            || "w_n*less_or_equal=less",
             |lc| lc + w_array[w_array.len() - 1],
             |lc| lc + not_all_zeros,
             |lc| lc + (Scalar::from(less), CS::one()),
@@ -547,7 +547,7 @@ where
     }
     let not_all_zeros = c_array.last().unwrap().clone();
     let r = Range::alloc_u64(
-        cs.namespace(|| "less_or_equal_alloc"),
+        cs.namespace(|| "less_alloc"),
         a,
         b,
         (w, a.1 & b.1),
@@ -557,7 +557,7 @@ where
         1,
         (not_all_zeros, a.1 & b.1)
     ).expect("range alloc error");
-    return Range::execute(cs.namespace(|| "less_or_equal_alloc"), &r);
+    return Range::execute(cs.namespace(|| "less"), &r);
 }
 
 pub fn large_or_equal_u64<Scalar, CS>(
@@ -596,7 +596,7 @@ where
         0,
         (not_all_zeros, a.1 & b.1)
     ).expect("range alloc error");
-    return Range::execute(cs.namespace(|| "large_or_equal_alloc"), &r);
+    return Range::execute(cs.namespace(|| "large_or_equal"), &r);
 }
 
 pub fn large_u64<Scalar, CS>(
@@ -635,7 +635,7 @@ where
         1,
         (not_all_zeros, a.1 & b.1)
     ).expect("range alloc error");
-    return Range::execute(cs.namespace(|| "large_alloc"), &r);
+    return Range::execute(cs.namespace(|| "large"), &r);
 }
 
 #[cfg(test)]
@@ -650,6 +650,8 @@ mod test {
     };
     use crate::helpers::range::{
         less_or_equal_u64,
+        less_or_equal_u32,
+        less_or_equal_u16,
         less_or_equal_u8
     };
 
@@ -657,6 +659,24 @@ mod test {
     fn test_less_or_equal_u64() {
         let cs = TestConstraintSystem::<Scalar>::new();
         assert!(less_or_equal_u64(cs, (1, true), (2, false)).is_ok());
+    }
+
+    #[test]
+    fn test_less_or_equal_u32() {
+        let cs = TestConstraintSystem::<Scalar>::new();
+        assert!(less_or_equal_u32(cs, (1, true), (2, false)).is_ok());
+    }
+
+    #[test]
+    fn test_less_or_equal_u16() {
+        let cs = TestConstraintSystem::<Scalar>::new();
+        assert!(less_or_equal_u16(cs, (1, true), (2, false)).is_ok());
+    }
+
+    #[test]
+    fn test_less_or_equal_u8() {
+        let cs = TestConstraintSystem::<Scalar>::new();
+        assert!(less_or_equal_u8(cs, (1, true), (2, false)).is_ok());
     }
 
     #[test]
