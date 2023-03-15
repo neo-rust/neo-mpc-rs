@@ -1,5 +1,3 @@
-use std::convert::TryInto;
-
 // Bring in some tools for using finite fiels
 use ff::{PrimeField};
 
@@ -17,267 +15,93 @@ struct Range {
     less: u64,
 }
 
+trait Alloc<U, T, E> {
+    fn alloc<Scalar, CS>(
+        cs: CS,
+        a: (U, bool),
+        b: (U, bool),
+        w: (U, bool),
+        w_array: (Vec<U>, bool),
+        cr_array: (Vec<U>, bool),
+        less_or_equal: U,
+        less: U,
+        not_all_zeros: (U, bool)
+    ) -> Result<T, E>
+    where
+        Scalar: PrimeField,
+        CS: ConstraintSystem<Scalar>;
+}
+
+impl<U: Copy> Alloc<U, Self, SynthesisError> for Range where u64: From<U> {
+    fn alloc<Scalar, CS>(
+        mut cs: CS,
+        a: (U, bool),
+        b: (U, bool),
+        w: (U, bool),
+        w_array: (Vec<U>, bool),
+        cr_array: (Vec<U>, bool),
+        less_or_equal: U,
+        less: U,
+        not_all_zeros: (U, bool)
+    ) -> Result<Self, SynthesisError>
+        where
+            Scalar: PrimeField,
+            CS: ConstraintSystem<Scalar>,
+    {
+        let a_var = Scalar::from(a.0.into());
+        let b_var = Scalar::from(b.0.into());
+        let w_var = Scalar::from(w.0.into());
+        let a_v = match a.1 {
+            true => cs.alloc(|| "a", ||  Ok(a_var))?,
+            false => cs.alloc_input(|| "a", ||  Ok(a_var))?,
+        };
+        let b_v = match b.1 {
+            true => cs.alloc(|| "b", || Ok(b_var))?,
+            false => cs.alloc_input(|| "b", || Ok(b_var))?,
+        };
+        let w_v = match w.1 {
+            true => cs.alloc(|| "w", || Ok(w_var))?,
+            false => cs.alloc_input(|| "w", || Ok(w_var))?,
+        };
+
+        let not_all_zeros_var = Scalar::from(not_all_zeros.0.into());
+        let not_all_zeros_v = match not_all_zeros.1 {
+            true => cs.alloc(|| "not_all_zeros", || Ok(not_all_zeros_var))?,
+            false => cs.alloc_input(|| "not_all_zeros", || Ok(not_all_zeros_var))?,
+        };
+        let mut w_array_v = vec![];
+        for i in 0 .. w_array.0.len(){
+            let w_var = *w_array.0.get(i).unwrap();
+            let w_v = match w_array.1 {
+                true => cs.alloc(|| format!("w_array_{}", i), || Ok(Scalar::from(w_var.into()))),
+                false => cs.alloc_input(|| format!("w_array_{}", i), || Ok(Scalar::from(w_var.into()))),
+            };
+            w_array_v.push(w_v.unwrap());
+        }
+        let mut cr_array_v = vec![];
+        for i in 0 .. cr_array.0.len() {
+            let cr_var = *cr_array.0.get(i).unwrap();
+            let cr_v = match cr_array.1 {
+                true => cs.alloc(|| format!("cr_array_{}", i), || Ok(Scalar::from(cr_var.into()))),
+                false => cs.alloc_input(|| format!("cr_array_{}", i), || Ok(Scalar::from(cr_var.into()))),
+            };
+            cr_array_v.push(cr_v.unwrap());
+        }
+
+        Ok(Range {
+            a: a_v,
+            b: b_v,
+            w: w_v,
+            w_array: w_array_v,
+            cr_array: cr_array_v,
+            less_or_equal: less_or_equal.into(),
+            less: less.into(),
+            not_all_zeros: not_all_zeros_v
+        })
+    }
+}
+
 impl Range {
-    pub fn alloc_u64<Scalar, CS>(
-        mut cs: CS,
-        a: (u64, bool),
-        b: (u64, bool),
-        w: (u64, bool),
-        w_array: ([u64; 64], bool),
-        cr_array: ([u64; 64], bool),
-        less_or_equal: u64,
-        less: u64,
-        not_all_zeros: (u64, bool)
-    ) -> Result<Self, SynthesisError>
-        where
-            Scalar: PrimeField,
-            CS: ConstraintSystem<Scalar>,
-    {
-        let a_var = Scalar::from(a.0);
-        let b_var = Scalar::from(b.0);
-        let w_var = Scalar::from(w.0);
-        let a_v = match a.1 {
-            true => cs.alloc(|| "a", ||  Ok(a_var))?,
-            false => cs.alloc_input(|| "a", ||  Ok(a_var))?,
-        };
-        let b_v = match b.1 {
-            true => cs.alloc(|| "b", || Ok(b_var))?,
-            false => cs.alloc_input(|| "b", || Ok(b_var))?,
-        };
-        let w_v = match w.1 {
-            true => cs.alloc(|| "w", || Ok(w_var))?,
-            false => cs.alloc_input(|| "w", || Ok(w_var))?,
-        };
-
-        let not_all_zeros_var = Scalar::from(not_all_zeros.0);
-        let not_all_zeros_v = match not_all_zeros.1 {
-            true => cs.alloc(|| "not_all_zeros", || Ok(not_all_zeros_var))?,
-            false => cs.alloc_input(|| "not_all_zeros", || Ok(not_all_zeros_var))?,
-        };
-        let mut w_array_var = vec![];
-        for i in 0 .. w_array.0.len(){
-            let w_array_v = match w_array.1 {
-                true => cs.alloc(|| format!("w_array_{}", i), || Ok(Scalar::from((w_array.0)[i]))),
-                false => cs.alloc_input(|| format!("w_array_{}", i), || Ok(Scalar::from(w_array.0[i]))),
-            };
-            w_array_var.push(w_array_v.unwrap());
-        }
-        let mut cr_array_var = vec![];
-        for i in 0 .. cr_array.0.len() {
-            let c_array_v = match cr_array.1 {
-                true => cs.alloc(|| format!("cr_array_{}", i), || Ok(Scalar::from(cr_array.0[i]))),
-                false => cs.alloc_input(|| format!("cr_array_{}", i), || Ok(Scalar::from(cr_array.0[i]))),
-            };
-            cr_array_var.push(c_array_v.unwrap());
-        }
-
-        Ok(Range {
-            a: a_v,
-            b: b_v,
-            w: w_v,
-            w_array: w_array_var,
-            less_or_equal: less_or_equal,
-            less: less,
-            not_all_zeros: not_all_zeros_v,
-            cr_array: cr_array_var,
-        })
-    }
-
-    pub fn alloc_u32<Scalar, CS>(
-        mut cs: CS,
-        a: (u32, bool),
-        b: (u32, bool),
-        w: (u32, bool),
-        w_array: ([u32; 32], bool),
-        cr_array: ([u32; 32], bool),
-        less_or_equal: u64,
-        less: u64,
-        not_all_zeros: (u32, bool)
-    ) -> Result<Self, SynthesisError>
-        where
-            Scalar: PrimeField,
-            CS: ConstraintSystem<Scalar>,
-    {
-        let a_var = Scalar::from(a.0.into());
-        let b_var = Scalar::from(b.0.into());
-        let w_var = Scalar::from(w.0.into());
-        let a_v = match a.1 {
-            true => cs.alloc(|| "a", ||  Ok(a_var))?,
-            false => cs.alloc_input(|| "a", ||  Ok(a_var))?,
-        };
-        let b_v = match b.1 {
-            true => cs.alloc(|| "b", || Ok(b_var))?,
-            false => cs.alloc_input(|| "b", || Ok(b_var))?,
-        };
-        let w_v = match w.1 {
-            true => cs.alloc(|| "w", || Ok(w_var))?,
-            false => cs.alloc_input(|| "w", || Ok(w_var))?,
-        };
-
-        let not_all_zeros_var = Scalar::from(not_all_zeros.0.into());
-        let not_all_zeros_v = match not_all_zeros.1 {
-            true => cs.alloc(|| "not_all_zeros", || Ok(not_all_zeros_var))?,
-            false => cs.alloc_input(|| "not_all_zeros", || Ok(not_all_zeros_var))?,
-        };
-        let mut w_array_var = vec![];
-        for i in 0 .. w_array.0.len(){
-            let w_array_v = match w_array.1 {
-                true => cs.alloc(|| format!("w_array_{}", i), || Ok(Scalar::from((w_array.0)[i].into()))),
-                false => cs.alloc_input(|| format!("w_array_{}", i), || Ok(Scalar::from(w_array.0[i].into()))),
-            };
-            w_array_var.push(w_array_v.unwrap());
-        }
-        let mut cr_array_var = vec![];
-        for i in 0 .. cr_array.0.len() {
-            let c_array_v = match cr_array.1 {
-                true => cs.alloc(|| format!("cr_array_{}", i), || Ok(Scalar::from(cr_array.0[i].into()))),
-                false => cs.alloc_input(|| format!("cr_array_{}", i), || Ok(Scalar::from(cr_array.0[i].into()))),
-            };
-            cr_array_var.push(c_array_v.unwrap());
-        }
-
-        Ok(Range {
-            a: a_v,
-            b: b_v,
-            w: w_v,
-            w_array: w_array_var,
-            less_or_equal: less_or_equal,
-            less: less,
-            not_all_zeros: not_all_zeros_v,
-            cr_array: cr_array_var,
-        })
-    }
-
-    pub fn alloc_u16<Scalar, CS>(
-        mut cs: CS,
-        a: (u16, bool),
-        b: (u16, bool),
-        w: (u16, bool),
-        w_array: ([u16; 16], bool),
-        cr_array: ([u16; 16], bool),
-        less_or_equal: u64,
-        less: u64,
-        not_all_zeros: (u16, bool)
-    ) -> Result<Self, SynthesisError>
-        where
-            Scalar: PrimeField,
-            CS: ConstraintSystem<Scalar>,
-    {
-        let a_var = Scalar::from(a.0.into());
-        let b_var = Scalar::from(b.0.into());
-        let w_var = Scalar::from(w.0.into());
-        let a_v = match a.1 {
-            true => cs.alloc(|| "a", ||  Ok(a_var))?,
-            false => cs.alloc_input(|| "a", ||  Ok(a_var))?,
-        };
-        let b_v = match b.1 {
-            true => cs.alloc(|| "b", || Ok(b_var))?,
-            false => cs.alloc_input(|| "b", || Ok(b_var))?,
-        };
-        let w_v = match w.1 {
-            true => cs.alloc(|| "w", || Ok(w_var))?,
-            false => cs.alloc_input(|| "w", || Ok(w_var))?,
-        };
-
-        let not_all_zeros_var = Scalar::from(not_all_zeros.0.into());
-        let not_all_zeros_v = match not_all_zeros.1 {
-            true => cs.alloc(|| "not_all_zeros", || Ok(not_all_zeros_var))?,
-            false => cs.alloc_input(|| "not_all_zeros", || Ok(not_all_zeros_var))?,
-        };
-        let mut w_array_var = vec![];
-        for i in 0 .. w_array.0.len(){
-            let w_array_v = match w_array.1 {
-                true => cs.alloc(|| format!("w_array_{}", i), || Ok(Scalar::from((w_array.0)[i].into()))),
-                false => cs.alloc_input(|| format!("w_array_{}", i), || Ok(Scalar::from(w_array.0[i].into()))),
-            };
-            w_array_var.push(w_array_v.unwrap());
-        }
-        let mut cr_array_var = vec![];
-        for i in 0 .. cr_array.0.len() {
-            let c_array_v = match cr_array.1 {
-                true => cs.alloc(|| format!("cr_array_{}", i), || Ok(Scalar::from(cr_array.0[i].into()))),
-                false => cs.alloc_input(|| format!("cr_array_{}", i), || Ok(Scalar::from(cr_array.0[i].into()))),
-            };
-            cr_array_var.push(c_array_v.unwrap());
-        }
-
-        Ok(Range {
-            a: a_v,
-            b: b_v,
-            w: w_v,
-            w_array: w_array_var,
-            less_or_equal: less_or_equal,
-            less: less,
-            not_all_zeros: not_all_zeros_v,
-            cr_array: cr_array_var,
-        })
-    }
-
-    pub fn alloc_u8<Scalar, CS>(
-        mut cs: CS,
-        a: (u8, bool),
-        b: (u8, bool),
-        w: (u8, bool),
-        w_array: ([u8; 8], bool),
-        cr_array: ([u8; 8], bool),
-        less_or_equal: u64,
-        less: u64,
-        not_all_zeros: (u8, bool)
-    ) -> Result<Self, SynthesisError>
-        where
-            Scalar: PrimeField,
-            CS: ConstraintSystem<Scalar>,
-    {
-        let a_var = Scalar::from(a.0.into());
-        let b_var = Scalar::from(b.0.into());
-        let w_var = Scalar::from(w.0.into());
-        let a_v = match a.1 {
-            true => cs.alloc(|| "a", ||  Ok(a_var))?,
-            false => cs.alloc_input(|| "a", ||  Ok(a_var))?,
-        };
-        let b_v = match b.1 {
-            true => cs.alloc(|| "b", || Ok(b_var))?,
-            false => cs.alloc_input(|| "b", || Ok(b_var))?,
-        };
-        let w_v = match w.1 {
-            true => cs.alloc(|| "w", || Ok(w_var))?,
-            false => cs.alloc_input(|| "w", || Ok(w_var))?,
-        };
-
-        let not_all_zeros_var = Scalar::from(not_all_zeros.0.into());
-        let not_all_zeros_v = match not_all_zeros.1 {
-            true => cs.alloc(|| "not_all_zeros", || Ok(not_all_zeros_var))?,
-            false => cs.alloc_input(|| "not_all_zeros", || Ok(not_all_zeros_var))?,
-        };
-        let mut w_array_var = vec![];
-        for i in 0 .. w_array.0.len(){
-            let w_array_v = match w_array.1 {
-                true => cs.alloc(|| format!("w_array_{}", i), || Ok(Scalar::from((w_array.0)[i].into()))),
-                false => cs.alloc_input(|| format!("w_array_{}", i), || Ok(Scalar::from(w_array.0[i].into()))),
-            };
-            w_array_var.push(w_array_v.unwrap());
-        }
-        let mut cr_array_var = vec![];
-        for i in 0 .. cr_array.0.len() {
-            let c_array_v = match cr_array.1 {
-                true => cs.alloc(|| format!("cr_array_{}", i), || Ok(Scalar::from(cr_array.0[i].into()))),
-                false => cs.alloc_input(|| format!("cr_array_{}", i), || Ok(Scalar::from(cr_array.0[i].into()))),
-            };
-            cr_array_var.push(c_array_v.unwrap());
-        }
-
-        Ok(Range {
-            a: a_v,
-            b: b_v,
-            w: w_v,
-            w_array: w_array_var,
-            less_or_equal: less_or_equal,
-            less: less,
-            not_all_zeros: not_all_zeros_v,
-            cr_array: cr_array_var,
-        })
-    }
-
     pub fn execute<Scalar, CS>(mut cs: CS, input: &Range) -> Result<(), SynthesisError> 
     where 
         Scalar: PrimeField,
@@ -368,7 +192,7 @@ pub fn less_or_equal_u64<Scalar, CS>(
 ) -> Result<(), SynthesisError>
 where
     Scalar: PrimeField,
-    CS: ConstraintSystem<Scalar>,
+    CS: ConstraintSystem<Scalar>
 {
     let w = ((1 << (64 - 1u64)) + (b.0 - a.0)) as u64;
     let mut w_array = [0].repeat(64);
@@ -383,17 +207,17 @@ where
     c_array[0] = w_array[0];
     let mut j = 1;
     while j < w_array.len(){
-        c_array[j] = u64::from(w_array[j] | c_array[j-1]);
-        j+=1;
+        c_array[j] = w_array[j] | c_array[j-1];
+        j += 1;
     }
     let not_all_zeros = c_array.last().unwrap().clone();
-    let r = Range::alloc_u64(
+    let r = Range::alloc(
         cs.namespace(|| "less_or_equal_alloc"),
         a,
         b,
         (w, a.1 & b.1),
-        (w_array.try_into().unwrap(), a.1 & b.1),
-        (c_array.try_into().unwrap(), a.1 & b.1),
+        (w_array, a.1 & b.1),
+        (c_array, a.1 & b.1),
         1,
         0,
         (not_all_zeros, a.1 & b.1)
@@ -411,7 +235,7 @@ pub fn less_or_equal_u32<Scalar, CS>(
         CS: ConstraintSystem<Scalar>,
 {
     let w = ((1 << (32 - 1u32)) + (b.0 - a.0)) as u32;
-    let mut w_array = [0u32].repeat(32);
+    let mut w_array = [0].repeat(32);
     let mut i = 0;
     let mut values = w.clone();
     while i < w_array.len() {
@@ -419,21 +243,21 @@ pub fn less_or_equal_u32<Scalar, CS>(
         values >>= 1;
         i += 1;
     }
-    let mut c_array = [0].repeat(32);
+    let mut c_array = [0u32].repeat(32);
     c_array[0] = w_array[0];
     let mut j = 1;
     while j < w_array.len(){
-        c_array[j] = u32::from(w_array[j] | c_array[j-1]);
-        j+=1;
+        c_array[j] = w_array[j] | c_array[j-1];
+        j += 1;
     }
     let not_all_zeros = c_array.last().unwrap().clone();
-    let r = Range::alloc_u32(
+    let r = Range::alloc(
         cs.namespace(|| "less_or_equal_alloc"),
         a,
         b,
         (w, a.1 & b.1),
-        (w_array.try_into().unwrap(), a.1 & b.1),
-        (c_array.try_into().unwrap(), a.1 & b.1),
+        (w_array, a.1 & b.1),
+        (c_array, a.1 & b.1),
         1,
         0,
         (not_all_zeros, a.1 & b.1)
@@ -451,7 +275,7 @@ pub fn less_or_equal_u16<Scalar, CS>(
         CS: ConstraintSystem<Scalar>,
 {
     let w = ((1 << (16 - 1u16)) + (b.0 - a.0)) as u16;
-    let mut w_array = [0u16].repeat(16);
+    let mut w_array = [0].repeat(16);
     let mut i = 0;
     let mut values = w.clone();
     while i < w_array.len() {
@@ -463,17 +287,17 @@ pub fn less_or_equal_u16<Scalar, CS>(
     c_array[0] = w_array[0];
     let mut j = 1;
     while j < w_array.len(){
-        c_array[j] = u16::from(w_array[j] | c_array[j-1]);
-        j+=1;
+        c_array[j] = w_array[j] | c_array[j-1];
+        j += 1;
     }
     let not_all_zeros = c_array.last().unwrap().clone();
-    let r = Range::alloc_u16(
+    let r = Range::alloc(
         cs.namespace(|| "less_or_equal_alloc"),
         a,
         b,
         (w, a.1 & b.1),
-        (w_array.try_into().unwrap(), a.1 & b.1),
-        (c_array.try_into().unwrap(), a.1 & b.1),
+        (w_array, a.1 & b.1),
+        (c_array, a.1 & b.1),
         1,
         0,
         (not_all_zeros, a.1 & b.1)
@@ -491,7 +315,7 @@ where
     CS: ConstraintSystem<Scalar>,
 {
     let w = ((1 << (8 - 1u8)) + (b.0 - a.0)) as u8;
-    let mut w_array = [0u8].repeat(8);
+    let mut w_array = [0].repeat(8);
     let mut i = 0;
     let mut values = w.clone();
     while i < w_array.len() {
@@ -503,17 +327,17 @@ where
     c_array[0] = w_array[0];
     let mut j = 1;
     while j < w_array.len(){
-        c_array[j] = u8::from(w_array[j] | c_array[j-1]);
-        j+=1;
+        c_array[j] = w_array[j] | c_array[j-1];
+        j += 1;
     }
     let not_all_zeros = c_array.last().unwrap().clone();
-    let r = Range::alloc_u8(
+    let r = Range::alloc(
         cs.namespace(|| "less_or_equal_alloc"),
         a,
         b,
         (w, a.1 & b.1),
-        (w_array.try_into().unwrap(), a.1 & b.1),
-        (c_array.try_into().unwrap(), a.1 & b.1),
+        (w_array, a.1 & b.1),
+        (c_array, a.1 & b.1),
         1,
         0,
         (not_all_zeros, a.1 & b.1)
@@ -543,16 +367,16 @@ where
     c_array[0] = w_array[0];
     let j = 1;
     while j < w_array.len(){
-        c_array[j] = u64::from(w_array[j] | c_array[j-1]);
+        c_array[j] = w_array[j] | c_array[j-1];
     }
     let not_all_zeros = c_array.last().unwrap().clone();
-    let r = Range::alloc_u64(
+    let r = Range::alloc(
         cs.namespace(|| "less_alloc"),
         a,
         b,
         (w, a.1 & b.1),
-        (w_array.try_into().unwrap(), a.1 & b.1),
-        (c_array.try_into().unwrap(), a.1 & b.1),
+        (w_array, a.1 & b.1),
+        (c_array, a.1 & b.1),
         1,
         1,
         (not_all_zeros, a.1 & b.1)
@@ -582,16 +406,16 @@ where
     c_array[0] = w_array[0];
     let j = 1;
     while j < w_array.len(){
-        c_array[j] = u64::from(w_array[j] | c_array[j-1]);
+        c_array[j] = w_array[j] | c_array[j-1];
     }
     let not_all_zeros = c_array.last().unwrap().clone();
-    let r = Range::alloc_u64(
+    let r = Range::alloc(
         cs.namespace(|| "large_or_equal_alloc"),
         b,
         a,
         (w, a.1 & b.1),
-        (w_array.try_into().unwrap(), a.1 & b.1),
-        (c_array.try_into().unwrap(), a.1 & b.1),
+        (w_array, a.1 & b.1),
+        (c_array, a.1 & b.1),
         1,
         0,
         (not_all_zeros, a.1 & b.1)
@@ -621,16 +445,16 @@ where
     c_array[0] = w_array[0];
     let j = 1;
     while j < w_array.len(){
-        c_array[j] = u64::from(w_array[j] | c_array[j-1]);
+        c_array[j] = w_array[j] | c_array[j-1];
     }
     let not_all_zeros = c_array.last().unwrap().clone();
-    let r = Range::alloc_u64(
+    let r = Range::alloc(
         cs.namespace(|| "large_alloc"),
         b,
         a,
         (w,a.1&b.1),
-        (w_array.try_into().unwrap(), a.1 & b.1),
-        (c_array.try_into().unwrap(), a.1 & b.1),
+        (w_array, a.1 & b.1),
+        (c_array, a.1 & b.1),
         1,
         1,
         (not_all_zeros, a.1 & b.1)
