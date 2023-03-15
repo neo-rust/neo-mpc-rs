@@ -4,6 +4,8 @@ use ff::{PrimeField};
 // We'll use these interfaces to construct our circuit.
 use bellman::{ConstraintSystem, LinearCombination, SynthesisError, Variable};
 
+///Here we provide some functions to create different types of integer data comparison circuits.
+///Mainly contains 'less' and 'less_or_equal' function.Other comparison logic can be realized through certain transformations.
 struct Range {
     a: Variable,
     b: Variable,
@@ -185,14 +187,17 @@ impl Range {
     }
 }
 
-pub fn less_or_equal_u64<Scalar, CS>(
+fn comparison_u64<Scalar, CS>(
     mut cs: CS,
+    name:&str,
     a: (u64, bool),
-    b: (u64, bool)
+    b: (u64, bool),
+    less_or_equal:u64,
+    less:u64,
 ) -> Result<(), SynthesisError>
-where
-    Scalar: PrimeField,
-    CS: ConstraintSystem<Scalar>
+    where
+        Scalar: PrimeField,
+        CS: ConstraintSystem<Scalar>
 {
     let w = ((1 << (64 - 1u64)) + (b.0 - a.0)) as u64;
     let mut w_array = [0].repeat(64);
@@ -212,38 +217,41 @@ where
     }
     let not_all_zeros = c_array.last().unwrap().clone();
     let r = Range::alloc(
-        cs.namespace(|| "less_or_equal_alloc"),
+        cs.namespace(|| format!("{0}_alloc", name)),
         a,
         b,
         (w, a.1 & b.1),
         (w_array, a.1 & b.1),
         (c_array, a.1 & b.1),
-        1,
-        0,
+        less_or_equal,
+        less,
         (not_all_zeros, a.1 & b.1)
-    ).expect("range alloc error");
-    return Range::execute(cs.namespace(|| "less_or_equal"), &r);
+    ).expect(&format!("{0}_alloc_error", name));
+    return Range::execute(cs.namespace(|| name), &r);
 }
 
-pub fn less_or_equal_u32<Scalar, CS>(
+fn comparison_u32<Scalar, CS>(
     mut cs: CS,
+    name:&str,
     a: (u32, bool),
-    b: (u32, bool)
+    b: (u32, bool),
+    less_or_equal:u64,
+    less:u64,
 ) -> Result<(), SynthesisError>
     where
         Scalar: PrimeField,
-        CS: ConstraintSystem<Scalar>,
+        CS: ConstraintSystem<Scalar>
 {
     let w = ((1 << (32 - 1u32)) + (b.0 - a.0)) as u32;
     let mut w_array = [0].repeat(32);
     let mut i = 0;
     let mut values = w.clone();
     while i < w_array.len() {
-        w_array[i] = values & 1u32;
+        w_array[i] = values & 1;
         values >>= 1;
         i += 1;
     }
-    let mut c_array = [0u32].repeat(32);
+    let mut c_array = [0].repeat(32);
     c_array[0] = w_array[0];
     let mut j = 1;
     while j < w_array.len(){
@@ -252,34 +260,37 @@ pub fn less_or_equal_u32<Scalar, CS>(
     }
     let not_all_zeros = c_array.last().unwrap().clone();
     let r = Range::alloc(
-        cs.namespace(|| "less_or_equal_alloc"),
+        cs.namespace(|| format!("{0}_alloc", name)),
         a,
         b,
         (w, a.1 & b.1),
         (w_array, a.1 & b.1),
         (c_array, a.1 & b.1),
-        1,
-        0,
+        less_or_equal,
+        less,
         (not_all_zeros, a.1 & b.1)
-    ).expect("range alloc error");
-    return Range::execute(cs.namespace(|| "less_or_equal"), &r);
+    ).expect(&format!("{0}_alloc_error", name));
+    return Range::execute(cs.namespace(|| name), &r);
 }
 
-pub fn less_or_equal_u16<Scalar, CS>(
+fn comparison_u16<Scalar, CS>(
     mut cs: CS,
+    name:&str,
     a: (u16, bool),
-    b: (u16, bool)
+    b: (u16, bool),
+    less_or_equal:u64,
+    less:u64,
 ) -> Result<(), SynthesisError>
     where
         Scalar: PrimeField,
-        CS: ConstraintSystem<Scalar>,
+        CS: ConstraintSystem<Scalar>
 {
     let w = ((1 << (16 - 1u16)) + (b.0 - a.0)) as u16;
     let mut w_array = [0].repeat(16);
     let mut i = 0;
     let mut values = w.clone();
     while i < w_array.len() {
-        w_array[i] = values & 1u16;
+        w_array[i] = values & 1;
         values >>= 1;
         i += 1;
     }
@@ -292,34 +303,37 @@ pub fn less_or_equal_u16<Scalar, CS>(
     }
     let not_all_zeros = c_array.last().unwrap().clone();
     let r = Range::alloc(
-        cs.namespace(|| "less_or_equal_alloc"),
+        cs.namespace(|| format!("{0}_alloc", name)),
         a,
         b,
         (w, a.1 & b.1),
         (w_array, a.1 & b.1),
         (c_array, a.1 & b.1),
-        1,
-        0,
+        less_or_equal,
+        less,
         (not_all_zeros, a.1 & b.1)
-    ).expect("range alloc error");
-    return Range::execute(cs.namespace(|| "less_or_equal"), &r);
+    ).expect(&format!("{0}_alloc_error", name));
+    return Range::execute(cs.namespace(|| name), &r);
 }
 
-pub fn less_or_equal_u8<Scalar, CS>(
+fn comparison_u8<Scalar, CS>(
     mut cs: CS,
+    name:&str,
     a: (u8, bool),
-    b: (u8, bool)
+    b: (u8, bool),
+    less_or_equal:u64,
+    less:u64,
 ) -> Result<(), SynthesisError>
-where
-    Scalar: PrimeField,
-    CS: ConstraintSystem<Scalar>,
+    where
+        Scalar: PrimeField,
+        CS: ConstraintSystem<Scalar>
 {
     let w = ((1 << (8 - 1u8)) + (b.0 - a.0)) as u8;
     let mut w_array = [0].repeat(8);
     let mut i = 0;
     let mut values = w.clone();
     while i < w_array.len() {
-        w_array[i] = values & 1u8;
+        w_array[i] = values & 1;
         values >>= 1;
         i += 1;
     }
@@ -332,17 +346,65 @@ where
     }
     let not_all_zeros = c_array.last().unwrap().clone();
     let r = Range::alloc(
-        cs.namespace(|| "less_or_equal_alloc"),
+        cs.namespace(|| format!("{0}_alloc", name)),
         a,
         b,
         (w, a.1 & b.1),
         (w_array, a.1 & b.1),
         (c_array, a.1 & b.1),
-        1,
-        0,
+        less_or_equal,
+        less,
         (not_all_zeros, a.1 & b.1)
-    ).expect("range alloc error");
-    return Range::execute(cs.namespace(|| "less_or_equal"), &r);
+    ).expect(&format!("{0}_alloc_error", name));
+    return Range::execute(cs.namespace(|| name), &r);
+}
+
+pub fn less_or_equal_u64<Scalar, CS>(
+    mut cs: CS,
+    a: (u64, bool),
+    b: (u64, bool)
+) -> Result<(), SynthesisError>
+where
+    Scalar: PrimeField,
+    CS: ConstraintSystem<Scalar>
+{
+    comparison_u64(cs,"less_or_equal",a,b,1,0)
+}
+
+pub fn less_or_equal_u32<Scalar, CS>(
+    mut cs: CS,
+    a: (u32, bool),
+    b: (u32, bool)
+) -> Result<(), SynthesisError>
+    where
+        Scalar: PrimeField,
+        CS: ConstraintSystem<Scalar>,
+{
+    comparison_u32(cs,"less_or_equal",a,b,1,0)
+}
+
+pub fn less_or_equal_u16<Scalar, CS>(
+    mut cs: CS,
+    a: (u16, bool),
+    b: (u16, bool)
+) -> Result<(), SynthesisError>
+    where
+        Scalar: PrimeField,
+        CS: ConstraintSystem<Scalar>,
+{
+    comparison_u16(cs,"less_or_equal",a,b,1,0)
+}
+
+pub fn less_or_equal_u8<Scalar, CS>(
+    mut cs: CS,
+    a: (u8, bool),
+    b: (u8, bool)
+) -> Result<(), SynthesisError>
+where
+    Scalar: PrimeField,
+    CS: ConstraintSystem<Scalar>,
+{
+    comparison_u8(cs,"less_or_equal",a,b,1,0)
 }
 
 pub fn less_u64<Scalar, CS>(
@@ -354,112 +416,43 @@ where
     Scalar: PrimeField,
     CS: ConstraintSystem<Scalar>,
 {
-    let w = ((1 << (64 - 1u64)) + (b.0 - a.0)) as u64;
-    let mut w_array = [0].repeat(64);
-    let mut i = 0;
-    let mut values = w.clone();
-    while i < w_array.len() {
-        w_array[i] = values & 1;
-        values >>= 1;
-        i += 1;
-    }
-    let mut c_array = [0].repeat(64);
-    c_array[0] = w_array[0];
-    let j = 1;
-    while j < w_array.len(){
-        c_array[j] = w_array[j] | c_array[j-1];
-    }
-    let not_all_zeros = c_array.last().unwrap().clone();
-    let r = Range::alloc(
-        cs.namespace(|| "less_alloc"),
-        a,
-        b,
-        (w, a.1 & b.1),
-        (w_array, a.1 & b.1),
-        (c_array, a.1 & b.1),
-        1,
-        1,
-        (not_all_zeros, a.1 & b.1)
-    ).expect("range alloc error");
-    return Range::execute(cs.namespace(|| "less"), &r);
+    comparison_u64(cs,"less",a,b,1,1)
 }
 
-pub fn large_or_equal_u64<Scalar, CS>(
+pub fn less_u32<Scalar, CS>(
     mut cs: CS,
-    a: (u64, bool),
-    b: (u64, bool)
+    a: (u32, bool),
+    b: (u32, bool)
 ) -> Result<(), SynthesisError>
-where
-    Scalar: PrimeField,
-    CS: ConstraintSystem<Scalar>,
+    where
+        Scalar: PrimeField,
+        CS: ConstraintSystem<Scalar>,
 {
-    let w = ((1 << (64 - 1u64)) + (a.0 - b.0)) as u64;
-    let mut w_array = [0].repeat(64);
-    let mut i = 0;
-    let mut values = w.clone();
-    while i < w_array.len() {
-        w_array[i] = values & 1;
-        values >>= 1;
-        i += 1;
-    }
-    let mut c_array = [0].repeat(64);
-    c_array[0] = w_array[0];
-    let j = 1;
-    while j < w_array.len(){
-        c_array[j] = w_array[j] | c_array[j-1];
-    }
-    let not_all_zeros = c_array.last().unwrap().clone();
-    let r = Range::alloc(
-        cs.namespace(|| "large_or_equal_alloc"),
-        b,
-        a,
-        (w, a.1 & b.1),
-        (w_array, a.1 & b.1),
-        (c_array, a.1 & b.1),
-        1,
-        0,
-        (not_all_zeros, a.1 & b.1)
-    ).expect("range alloc error");
-    return Range::execute(cs.namespace(|| "large_or_equal"), &r);
+    comparison_u32(cs,"less",a,b,1,1)
 }
 
-pub fn large_u64<Scalar, CS>(
+pub fn less_u16<Scalar, CS>(
     mut cs: CS,
-    a: (u64, bool),
-    b: (u64, bool)
+    a: (u16, bool),
+    b: (u16, bool)
 ) -> Result<(), SynthesisError>
-where
-    Scalar: PrimeField,
-    CS: ConstraintSystem<Scalar>,
+    where
+        Scalar: PrimeField,
+        CS: ConstraintSystem<Scalar>,
 {
-    let w = ((1 << (64 - 1u64)) + (a.0 - b.0)) as u64;
-    let mut w_array = [0].repeat(64);
-    let mut i = 0;
-    let mut values = w.clone();
-    while i < w_array.len() {
-        w_array[i] = values & 1;
-        values >>= 1;
-        i += 1;
-    }
-    let mut c_array = [0].repeat(64);
-    c_array[0] = w_array[0];
-    let j = 1;
-    while j < w_array.len(){
-        c_array[j] = w_array[j] | c_array[j-1];
-    }
-    let not_all_zeros = c_array.last().unwrap().clone();
-    let r = Range::alloc(
-        cs.namespace(|| "large_alloc"),
-        b,
-        a,
-        (w,a.1&b.1),
-        (w_array, a.1 & b.1),
-        (c_array, a.1 & b.1),
-        1,
-        1,
-        (not_all_zeros, a.1 & b.1)
-    ).expect("range alloc error");
-    return Range::execute(cs.namespace(|| "large"), &r);
+    comparison_u16(cs,"less",a,b,1,1)
+}
+
+pub fn less_u8<Scalar, CS>(
+    mut cs: CS,
+    a: (u8, bool),
+    b: (u8, bool)
+) -> Result<(), SynthesisError>
+    where
+        Scalar: PrimeField,
+        CS: ConstraintSystem<Scalar>,
+{
+    comparison_u8(cs,"less",a,b,1,1)
 }
 
 #[cfg(test)]
