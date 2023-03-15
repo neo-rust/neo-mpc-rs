@@ -15,7 +15,7 @@ struct Range {
     less: u64,
 }
 
-trait Alloc<U, T, E> {
+trait Alloc<U> {
     fn alloc<Scalar, CS>(
         cs: CS,
         a: (U, bool),
@@ -23,16 +23,16 @@ trait Alloc<U, T, E> {
         w: (U, bool),
         w_array: (Vec<U>, bool),
         cr_array: (Vec<U>, bool),
-        less_or_equal: U,
-        less: U,
+        less_or_equal: u64,
+        less: u64,
         not_all_zeros: (U, bool)
-    ) -> Result<T, E>
+    ) -> Result<Range, SynthesisError>
     where
         Scalar: PrimeField,
         CS: ConstraintSystem<Scalar>;
 }
 
-impl<U: Copy> Alloc<U, Self, SynthesisError> for Range where u64: From<U> {
+impl<U: Copy> Alloc<U> for Range where u64: From<U> {
     fn alloc<Scalar, CS>(
         mut cs: CS,
         a: (U, bool),
@@ -40,8 +40,8 @@ impl<U: Copy> Alloc<U, Self, SynthesisError> for Range where u64: From<U> {
         w: (U, bool),
         w_array: (Vec<U>, bool),
         cr_array: (Vec<U>, bool),
-        less_or_equal: U,
-        less: U,
+        less_or_equal: u64,
+        less: u64,
         not_all_zeros: (U, bool)
     ) -> Result<Self, SynthesisError>
         where
@@ -94,8 +94,8 @@ impl<U: Copy> Alloc<U, Self, SynthesisError> for Range where u64: From<U> {
             w: w_v,
             w_array: w_array_v,
             cr_array: cr_array_v,
-            less_or_equal: less_or_equal.into(),
-            less: less.into(),
+            less_or_equal: less_or_equal,
+            less: less,
             not_all_zeros: not_all_zeros_v
         })
     }
