@@ -19,6 +19,8 @@ use super::{
     contains_contribution
 };
 
+/// We will provide some simplified interfaces of the MPC process here to facilitate the calling of external programs
+/// Of course, also refer to the case in the test sample, where we have used these interfaces to build a demo
 pub struct MPCWork {
     params: MPCParameters
 }
@@ -62,7 +64,6 @@ impl MPCWork {
         assert!(contains_contribution(&verification_result, &contrib))
     }
 }
-
 
 pub fn clean_params(file_path: &str){
     fs::remove_file(file_path).expect(format!("file:{} remove failed", file_path).as_str());
