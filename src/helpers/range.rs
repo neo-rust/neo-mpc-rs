@@ -54,29 +54,29 @@ impl<U: Copy> Alloc<U> for Range where u64: From<U> {
         let b_var = Scalar::from(b.0.into());
         let w_var = Scalar::from(w.0.into());
         let a_v = match a.1 {
-            true => cs.alloc(|| "a", ||  Ok(a_var))?,
-            false => cs.alloc_input(|| "a", ||  Ok(a_var))?,
+            true => cs.alloc_input(|| "a", ||  Ok(a_var))?,
+            false => cs.alloc(|| "a", ||  Ok(a_var))?,
         };
         let b_v = match b.1 {
-            true => cs.alloc(|| "b", || Ok(b_var))?,
-            false => cs.alloc_input(|| "b", || Ok(b_var))?,
+            true => cs.alloc_input(|| "b", || Ok(b_var))?,
+            false => cs.alloc(|| "b", || Ok(b_var))?,
         };
         let w_v = match w.1 {
-            true => cs.alloc(|| "w", || Ok(w_var))?,
-            false => cs.alloc_input(|| "w", || Ok(w_var))?,
+            true => cs.alloc_input(|| "w", || Ok(w_var))?,
+            false => cs.alloc(|| "w", || Ok(w_var))?,
         };
 
         let not_all_zeros_var = Scalar::from(not_all_zeros.0.into());
         let not_all_zeros_v = match not_all_zeros.1 {
-            true => cs.alloc(|| "not_all_zeros", || Ok(not_all_zeros_var))?,
-            false => cs.alloc_input(|| "not_all_zeros", || Ok(not_all_zeros_var))?,
+            true => cs.alloc_input(|| "not_all_zeros", || Ok(not_all_zeros_var))?,
+            false => cs.alloc(|| "not_all_zeros", || Ok(not_all_zeros_var))?,
         };
         let mut w_array_v = vec![];
         for i in 0 .. w_array.0.len(){
             let w_var = *w_array.0.get(i).unwrap();
             let w_v = match w_array.1 {
-                true => cs.alloc(|| format!("w_array_{}", i), || Ok(Scalar::from(w_var.into()))),
-                false => cs.alloc_input(|| format!("w_array_{}", i), || Ok(Scalar::from(w_var.into()))),
+                true => cs.alloc_input(|| format!("w_array_{}", i), || Ok(Scalar::from(w_var.into()))),
+                false => cs.alloc(|| format!("w_array_{}", i), || Ok(Scalar::from(w_var.into()))),
             };
             w_array_v.push(w_v.unwrap());
         }
@@ -84,8 +84,8 @@ impl<U: Copy> Alloc<U> for Range where u64: From<U> {
         for i in 0 .. cr_array.0.len() {
             let cr_var = *cr_array.0.get(i).unwrap();
             let cr_v = match cr_array.1 {
-                true => cs.alloc(|| format!("cr_array_{}", i), || Ok(Scalar::from(cr_var.into()))),
-                false => cs.alloc_input(|| format!("cr_array_{}", i), || Ok(Scalar::from(cr_var.into()))),
+                true => cs.alloc_input(|| format!("cr_array_{}", i), || Ok(Scalar::from(cr_var.into()))),
+                false => cs.alloc(|| format!("cr_array_{}", i), || Ok(Scalar::from(cr_var.into()))),
             };
             cr_array_v.push(cr_v.unwrap());
         }
@@ -208,10 +208,10 @@ fn comparison_u64<Scalar, CS>(
         values >>= 1;
         i += 1;
     }
-    let mut c_array = [0].repeat(64);
+    let mut c_array = [0].repeat(63);
     c_array[0] = w_array[0];
     let mut j = 1;
-    while j < w_array.len(){
+    while j < c_array.len(){
         c_array[j] = w_array[j] | c_array[j-1];
         j += 1;
     }
@@ -251,10 +251,10 @@ fn comparison_u32<Scalar, CS>(
         values >>= 1;
         i += 1;
     }
-    let mut c_array = [0].repeat(32);
+    let mut c_array = [0].repeat(31);
     c_array[0] = w_array[0];
     let mut j = 1;
-    while j < w_array.len(){
+    while j < c_array.len(){
         c_array[j] = w_array[j] | c_array[j-1];
         j += 1;
     }
@@ -294,10 +294,10 @@ fn comparison_u16<Scalar, CS>(
         values >>= 1;
         i += 1;
     }
-    let mut c_array = [0].repeat(16);
+    let mut c_array = [0].repeat(15);
     c_array[0] = w_array[0];
     let mut j = 1;
-    while j < w_array.len(){
+    while j < c_array.len(){
         c_array[j] = w_array[j] | c_array[j-1];
         j += 1;
     }
@@ -337,10 +337,10 @@ fn comparison_u8<Scalar, CS>(
         values >>= 1;
         i += 1;
     }
-    let mut c_array = [0].repeat(8);
+    let mut c_array = [0].repeat(7);
     c_array[0] = w_array[0];
     let mut j = 1;
-    while j < w_array.len(){
+    while j < c_array.len(){
         c_array[j] = w_array[j] | c_array[j-1];
         j += 1;
     }
@@ -460,16 +460,21 @@ mod test {
     use crate::mpc::{MPCWork, clean_params};
     use rand::thread_rng;
     use ff::{PrimeField};
-    use bls12_381::{Scalar};
+    use bls12_381::{Bls12, Scalar};
     use bellman::{
         Circuit, ConstraintSystem, SynthesisError,
         gadgets::test::TestConstraintSystem
     };
+    use bellman::groth16::{create_proof, generate_random_parameters, prepare_verifying_key, verify_proof};
     use crate::helpers::range::{
         less_or_equal_u64,
         less_or_equal_u32,
         less_or_equal_u16,
-        less_or_equal_u8
+        less_or_equal_u8,
+        less_u64,
+        less_u32,
+        less_u16,
+        less_u8
     };
 
     #[test]
@@ -494,6 +499,30 @@ mod test {
     fn test_less_or_equal_u8() {
         let cs = TestConstraintSystem::<Scalar>::new();
         assert!(less_or_equal_u8(cs, (1, true), (2, false)).is_ok());
+    }
+
+    #[test]
+    fn test_less_u64() {
+        let cs = TestConstraintSystem::<Scalar>::new();
+        assert!(less_u64(cs, (1, true), (2, false)).is_ok());
+    }
+
+    #[test]
+    fn test_less_u32() {
+        let cs = TestConstraintSystem::<Scalar>::new();
+        assert!(less_u32(cs, (1, true), (2, false)).is_ok());
+    }
+
+    #[test]
+    fn test_less_u16() {
+        let cs = TestConstraintSystem::<Scalar>::new();
+        assert!(less_u16(cs, (1, true), (2, false)).is_ok());
+    }
+
+    #[test]
+    fn test_less_u8() {
+        let cs = TestConstraintSystem::<Scalar>::new();
+        assert!(less_u8(cs, (1, true), (2, false)).is_ok());
     }
 
     #[test]
@@ -528,18 +557,68 @@ mod test {
         }
     }
 
+    #[test]
+    fn test_all_process(){
+        let g1 = Scalar::one();
+        let g2 = Scalar::one();
+        let alpha = Scalar::from(48577);
+        let beta = Scalar::from(22580);
+        let gamma = Scalar::from(53332);
+        let delta = Scalar::from(5481);
+        let tau = Scalar::from(3673);
+        let mut rng = thread_rng();
+        let params = {
+            let c = TestDemo {
+                xl: Some(1),
+                xr: Some(2),
+                constants: &Some([Scalar::from(2)]),
+            };
+
+            //generate_parameters::<Bls12, _>(c, g1, g2, alpha, beta, gamma, delta, tau).unwrap()
+            generate_random_parameters::<Bls12, _, _>(c, &mut rng).unwrap()
+        };
+        let pvk = prepare_verifying_key(&params.vk);
+
+        println!("Creating proofs...");
+
+        let r = Scalar::from(27134);
+        let s = Scalar::from(17146);
+        let proof = {
+            let c = TestDemo {
+                xl: Some(1),
+                xr: Some(2),
+                constants: &Some([Scalar::from(2)]),
+            };
+            //create_random_proof(c, &params, &mut rng).unwrap()
+            create_proof(c, &params, r, s).unwrap()
+        };
+
+        assert!(verify_proof(&pvk, &proof, &[Scalar::from(2)]).is_ok());
+
+        let proof_a = proof.a.to_uncompressed();
+
+        let proof_b = proof.b.to_uncompressed();
+
+        let proof_c = proof.c.to_uncompressed();
+
+        println!("A Point: {:?}", proof_a);
+
+        println!("B Point: {:?}", proof_b);
+
+        println!("C Point: {:?}", proof_c);
+    }
+
     struct TestDemo<'a, S: PrimeField> {
         xl: Option<u8>,
         xr: Option<u8>,
-        constants: &'a Option<S>,
+        constants: &'a Option<[S;1]>,
     }
 
     impl<'a, S: PrimeField> Circuit<S> for TestDemo<'a, S> {
         fn synthesize<CS: ConstraintSystem<S>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
             let a = self.xl.unwrap();
             let b = self.xr.unwrap();
-
-            less_or_equal_u8(cs, (a, true), (b, true))
+            less_or_equal_u8(cs, (a, false), (b, true))
         }
     }
 }
