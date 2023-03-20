@@ -379,7 +379,7 @@ where
 }
 
 pub fn less_or_equal_u64<Scalar, CS>(
-    mut cs: CS,
+    cs: CS,
     a: (u64, bool),
     b: (u64, bool),
 ) -> Result<(), SynthesisError>
@@ -391,7 +391,7 @@ where
 }
 
 pub fn less_or_equal_u32<Scalar, CS>(
-    mut cs: CS,
+    cs: CS,
     a: (u32, bool),
     b: (u32, bool),
 ) -> Result<(), SynthesisError>
@@ -403,7 +403,7 @@ where
 }
 
 pub fn less_or_equal_u16<Scalar, CS>(
-    mut cs: CS,
+    cs: CS,
     a: (u16, bool),
     b: (u16, bool),
 ) -> Result<(), SynthesisError>
@@ -415,7 +415,7 @@ where
 }
 
 pub fn less_or_equal_u8<Scalar, CS>(
-    mut cs: CS,
+    cs: CS,
     a: (u8, bool),
     b: (u8, bool),
 ) -> Result<(), SynthesisError>
@@ -426,11 +426,7 @@ where
     comparison_u8(cs, "less_or_equal", a, b, 1, 0)
 }
 
-pub fn less_u64<Scalar, CS>(
-    mut cs: CS,
-    a: (u64, bool),
-    b: (u64, bool),
-) -> Result<(), SynthesisError>
+pub fn less_u64<Scalar, CS>(cs: CS, a: (u64, bool), b: (u64, bool)) -> Result<(), SynthesisError>
 where
     Scalar: PrimeField,
     CS: ConstraintSystem<Scalar>,
@@ -438,11 +434,7 @@ where
     comparison_u64(cs, "less", a, b, 1, 1)
 }
 
-pub fn less_u32<Scalar, CS>(
-    mut cs: CS,
-    a: (u32, bool),
-    b: (u32, bool),
-) -> Result<(), SynthesisError>
+pub fn less_u32<Scalar, CS>(cs: CS, a: (u32, bool), b: (u32, bool)) -> Result<(), SynthesisError>
 where
     Scalar: PrimeField,
     CS: ConstraintSystem<Scalar>,
@@ -450,11 +442,7 @@ where
     comparison_u32(cs, "less", a, b, 1, 1)
 }
 
-pub fn less_u16<Scalar, CS>(
-    mut cs: CS,
-    a: (u16, bool),
-    b: (u16, bool),
-) -> Result<(), SynthesisError>
+pub fn less_u16<Scalar, CS>(cs: CS, a: (u16, bool), b: (u16, bool)) -> Result<(), SynthesisError>
 where
     Scalar: PrimeField,
     CS: ConstraintSystem<Scalar>,
@@ -462,7 +450,7 @@ where
     comparison_u16(cs, "less", a, b, 1, 1)
 }
 
-pub fn less_u8<Scalar, CS>(mut cs: CS, a: (u8, bool), b: (u8, bool)) -> Result<(), SynthesisError>
+pub fn less_u8<Scalar, CS>(cs: CS, a: (u8, bool), b: (u8, bool)) -> Result<(), SynthesisError>
 where
     Scalar: PrimeField,
     CS: ConstraintSystem<Scalar>,
@@ -476,60 +464,128 @@ mod test {
         less_or_equal_u16, less_or_equal_u32, less_or_equal_u64, less_or_equal_u8, less_u16,
         less_u32, less_u64, less_u8,
     };
-    use crate::mpc::{clean_params, MPCWork};
-    use bellman::groth16::{
-        create_proof, generate_random_parameters, prepare_verifying_key, verify_proof,
-    };
-    use bellman::{gadgets::test::TestConstraintSystem, Circuit, ConstraintSystem, SynthesisError};
-    use bls12_381::{Bls12, Scalar};
-    use ff::PrimeField;
-    use rand::thread_rng;
+    use bellman::{gadgets::test::TestConstraintSystem, ConstraintSystem};
+    use bls12_381::Scalar;
 
     #[test]
     fn test_less_or_equal_u64() {
-        let cs = TestConstraintSystem::<Scalar>::new();
-        assert!(less_or_equal_u64(cs, (1, true), (2, false)).is_ok());
+        // pub left
+        let mut cs = TestConstraintSystem::<Scalar>::new();
+        let mut result = less_or_equal_u64(cs.namespace(|| "less_or_equal_u64"), (1, true), (2, false));
+        assert!(result.is_ok());
+        assert!(cs.is_satisfied());
+        assert!(cs.verify(&[Scalar::from(1)]));
+
+        // no pub
+        cs = TestConstraintSystem::<Scalar>::new();
+        result = less_or_equal_u64(cs.namespace(|| "less_or_equal_u64"), (1, false), (2, false));
+        assert!(result.is_ok());
+        assert!(cs.is_satisfied());
+        assert!(cs.verify(&[]));
     }
 
     #[test]
     fn test_less_or_equal_u32() {
-        let cs = TestConstraintSystem::<Scalar>::new();
-        assert!(less_or_equal_u32(cs, (1, true), (2, false)).is_ok());
+        let mut cs = TestConstraintSystem::<Scalar>::new();
+        let mut result = less_or_equal_u32(cs.namespace(|| "less_or_equal_u32"), (1, true), (2, false));
+        assert!(result.is_ok());
+        assert!(cs.is_satisfied());
+        assert!(cs.verify(&[Scalar::from(1)]));
+
+        cs = TestConstraintSystem::<Scalar>::new();
+        result = less_or_equal_u32(cs.namespace(|| "less_or_equal_u32"), (1, false), (2, false));
+        assert!(result.is_ok());
+        assert!(cs.is_satisfied());
+        assert!(cs.verify(&[]));
     }
 
     #[test]
     fn test_less_or_equal_u16() {
-        let cs = TestConstraintSystem::<Scalar>::new();
-        assert!(less_or_equal_u16(cs, (1, true), (2, false)).is_ok());
+        let mut cs = TestConstraintSystem::<Scalar>::new();
+        let mut result = less_or_equal_u16(cs.namespace(|| "less_or_equal_u16"), (1, true), (2, false));
+        assert!(result.is_ok());
+        assert!(cs.is_satisfied());
+        assert!(cs.verify(&[Scalar::from(1)]));
+
+        cs = TestConstraintSystem::<Scalar>::new();
+        result = less_or_equal_u16(cs.namespace(|| "less_or_equal_u16"), (1, false), (2, false));
+        assert!(result.is_ok());
+        assert!(cs.is_satisfied());
+        assert!(cs.verify(&[]));
     }
 
     #[test]
     fn test_less_or_equal_u8() {
-        let cs = TestConstraintSystem::<Scalar>::new();
-        assert!(less_or_equal_u8(cs, (1, true), (2, false)).is_ok());
+        let mut cs = TestConstraintSystem::<Scalar>::new();
+        let mut result = less_or_equal_u8(cs.namespace(|| "less_or_equal_u8"), (1, true), (2, false));
+        assert!(result.is_ok());
+        assert!(cs.is_satisfied());
+        assert!(cs.verify(&[Scalar::from(1)]));
+
+        cs = TestConstraintSystem::<Scalar>::new();
+        result = less_or_equal_u8(cs.namespace(|| "less_or_equal_u8"), (1, false), (2, false));
+        assert!(result.is_ok());
+        assert!(cs.is_satisfied());
+        assert!(cs.verify(&[]));
     }
 
     #[test]
     fn test_less_u64() {
-        let cs = TestConstraintSystem::<Scalar>::new();
-        assert!(less_u64(cs, (1, true), (2, false)).is_ok());
+        let mut cs = TestConstraintSystem::<Scalar>::new();
+        let mut result = less_u64(cs.namespace(|| "less_u64"), (1, true), (2, false));
+        assert!(result.is_ok());
+        assert!(cs.is_satisfied());
+        assert!(cs.verify(&[Scalar::from(1)]));
+
+        cs = TestConstraintSystem::<Scalar>::new();
+        result = less_u64(cs.namespace(|| "less_u64"), (1, false), (2, false));
+        assert!(result.is_ok());
+        assert!(cs.is_satisfied());
+        assert!(cs.verify(&[]));
     }
 
     #[test]
     fn test_less_u32() {
-        let cs = TestConstraintSystem::<Scalar>::new();
-        assert!(less_u32(cs, (1, true), (2, false)).is_ok());
+        let mut cs = TestConstraintSystem::<Scalar>::new();
+        let mut result = less_u32(cs.namespace(|| "less_u32"), (1, true), (2, false));
+        assert!(result.is_ok());
+        assert!(cs.is_satisfied());
+        assert!(cs.verify(&[Scalar::from(1)]));
+
+        cs = TestConstraintSystem::<Scalar>::new();
+        result = less_u32(cs.namespace(|| "less_u32"), (1, false), (2, false));
+        assert!(result.is_ok());
+        assert!(cs.is_satisfied());
+        assert!(cs.verify(&[]));
     }
 
     #[test]
     fn test_less_u16() {
-        let cs = TestConstraintSystem::<Scalar>::new();
-        assert!(less_u16(cs, (1, true), (2, false)).is_ok());
+        let mut cs = TestConstraintSystem::<Scalar>::new();
+        let mut result = less_u16(cs.namespace(|| "less_u16"), (1, true), (2, false));
+        assert!(result.is_ok());
+        assert!(cs.is_satisfied());
+        assert!(cs.verify(&[Scalar::from(1)]));
+
+        cs = TestConstraintSystem::<Scalar>::new();
+        result = less_u16(cs.namespace(|| "less_u16"), (1, false), (2, false));
+        assert!(result.is_ok());
+        assert!(cs.is_satisfied());
+        assert!(cs.verify(&[]));
     }
 
     #[test]
     fn test_less_u8() {
-        let cs = TestConstraintSystem::<Scalar>::new();
-        assert!(less_u8(cs, (1, true), (2, false)).is_ok());
+        let mut cs = TestConstraintSystem::<Scalar>::new();
+        let mut result = less_u8(cs.namespace(|| "less_u8"), (1, true), (2, false));
+        assert!(result.is_ok());
+        assert!(cs.is_satisfied());
+        assert!(cs.verify(&[Scalar::from(1)]));
+
+        cs = TestConstraintSystem::<Scalar>::new();
+        result = less_u8(cs.namespace(|| "less_u8"), (1, false), (2, false));
+        assert!(result.is_ok());
+        assert!(cs.is_satisfied());
+        assert!(cs.verify(&[]));
     }
 }
