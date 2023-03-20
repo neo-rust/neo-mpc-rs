@@ -15,7 +15,7 @@ use super::{contains_contribution, verify_contribution, MPCParameters};
 /// We will provide some simplified interfaces of the MPC process here to facilitate the calling of external programs
 /// Of course, also refer to the case in the test sample, where we have used these interfaces to build a demo
 pub struct MPCWork {
-    params: MPCParameters,
+    pub params: MPCParameters,
 }
 
 impl MPCWork {
