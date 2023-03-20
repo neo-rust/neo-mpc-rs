@@ -186,15 +186,15 @@ impl Range {
         );
 
         cs.enforce(
-            || "w_n=less_or_equal*w_n",
-            |lc| lc + w_array[w_array.len() - 1],
+            || "w_n=less_or_equal*1",
+            |lc| lc + CS::one(),
             |lc| lc + (Scalar::from(less_or_equal), CS::one()),
             |lc| lc + w_array[w_array.len() - 1],
         );
 
         cs.enforce(
-            || "w_n*less_or_equal=less",
-            |lc| lc + w_array[w_array.len() - 1],
+            || "less*not_all_zeros=less",
+            |lc| lc + (Scalar::from(less), CS::one()),
             |lc| lc + not_all_zeros,
             |lc| lc + (Scalar::from(less), CS::one()),
         );
@@ -626,7 +626,7 @@ mod test {
         fn synthesize<CS: ConstraintSystem<S>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
             let a = self.xl.unwrap();
             let b = self.xr.unwrap();
-            less_or_equal_u8(cs, (a, false), (b, true))
+            less_u8(cs, (a, false), (b, true))
         }
     }
 }
