@@ -5,8 +5,8 @@
 use bellman::{ConstraintSystem, SynthesisError};
 use ff::PrimeField;
 
-use crate::types::{Boolean, Bytes4};
 use crate::helpers::multieq::MultiEq;
+use crate::types::{Boolean, Bytes4};
 
 /*
 2.1.  Parameters
@@ -386,10 +386,7 @@ mod test {
     use rand_core::{RngCore, SeedableRng};
     use rand_xorshift::XorShiftRng;
 
-    use bellman::{
-        ConstraintSystem,
-        gadgets::test::TestConstraintSystem
-    };
+    use bellman::{gadgets::test::TestConstraintSystem, ConstraintSystem};
 
     use super::blake2s;
     use crate::types::{Bit, Boolean};

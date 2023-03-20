@@ -3,7 +3,7 @@
 //!
 //! [`sha256`]: crate::gadgets::sha256
 
-use ff::{PrimeField};
+use ff::PrimeField;
 
 use bellman::{ConstraintSystem, LinearCombination, SynthesisError};
 
@@ -410,8 +410,8 @@ impl Bytes4 {
 #[cfg(test)]
 mod test {
     use super::Bytes4;
-    use crate::types::Boolean;
     use crate::helpers::multieq::MultiEq;
+    use crate::types::Boolean;
     use bellman::gadgets::test::TestConstraintSystem;
     use bellman::ConstraintSystem;
     use bls12_381::Scalar;

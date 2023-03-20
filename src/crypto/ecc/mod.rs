@@ -3,8 +3,8 @@ mod ecc;
 
 pub use self::{
     constants::{
-        EDWARDS_D, MONTGOMERY_A, MONTGOMERY_SCALE, FixedGenerator, FixedGeneratorOwned,
-        generate_circuit_generator, to_montgomery_coords
+        generate_circuit_generator, to_montgomery_coords, FixedGenerator, FixedGeneratorOwned,
+        EDWARDS_D, MONTGOMERY_A, MONTGOMERY_SCALE,
     },
-    ecc::{EdwardsPoint, MontgomeryPoint, fixed_base_multiplication}
+    ecc::{fixed_base_multiplication, EdwardsPoint, MontgomeryPoint},
 };

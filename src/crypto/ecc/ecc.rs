@@ -1,18 +1,13 @@
 //! Gadgets implementing Jubjub elliptic curve operations.
 
-use std::ops::{AddAssign, MulAssign, Neg, SubAssign};
 use group::Curve;
+use std::ops::{AddAssign, MulAssign, Neg, SubAssign};
 
-use bellman::{
-    ConstraintSystem, SynthesisError,
-    gadgets::Assignment
-};
+use bellman::{gadgets::Assignment, ConstraintSystem, SynthesisError};
 
-use crate::types::{Boolean, Num, UnallocatedNum};
+use crate::crypto::ecc::{FixedGenerator, EDWARDS_D, MONTGOMERY_A, MONTGOMERY_SCALE};
 use crate::helpers::lookup::lookup3_xy;
-use crate::crypto::ecc::{
-    FixedGenerator, EDWARDS_D, MONTGOMERY_A, MONTGOMERY_SCALE
-};
+use crate::types::{Boolean, Num, UnallocatedNum};
 
 #[derive(Clone)]
 pub struct EdwardsPoint {
@@ -532,7 +527,10 @@ impl MontgomeryPoint {
     /// in Montgomery, does not check that it's
     /// on the curve. Useful for constants and
     /// window table lookups.
-    pub fn interpret_unchecked(x: UnallocatedNum<bls12_381::Scalar>, y: UnallocatedNum<bls12_381::Scalar>) -> Self {
+    pub fn interpret_unchecked(
+        x: UnallocatedNum<bls12_381::Scalar>,
+        y: UnallocatedNum<bls12_381::Scalar>,
+    ) -> Self {
         MontgomeryPoint { x, y }
     }
 
@@ -625,14 +623,11 @@ mod test {
     use rand_core::{RngCore, SeedableRng};
     use rand_xorshift::XorShiftRng;
 
-    use bellman::{
-        ConstraintSystem,
-        gadgets::test::TestConstraintSystem
-    };
-    use jubjub::{Fr, SubgroupPoint, ExtendedPoint, AffinePoint};
+    use bellman::{gadgets::test::TestConstraintSystem, ConstraintSystem};
+    use jubjub::{AffinePoint, ExtendedPoint, Fr, SubgroupPoint};
 
-    use crate::types::{Bit, Boolean, Num};
     use crate::crypto::ecc::*;
+    use crate::types::{Bit, Boolean, Num};
 
     const EXAMPLE_GENERATOR: SubgroupPoint = SubgroupPoint::from_raw_unchecked(
         bls12_381::Scalar::from_raw([
@@ -765,12 +760,11 @@ mod test {
                 .take(Fr::NUM_BITS as usize)
                 .enumerate()
                 .map(|(i, b)| {
-                    Bit::alloc(cs.namespace(|| format!("scalar bit {}", i)), Some(b))
-                        .unwrap()
+                    Bit::alloc(cs.namespace(|| format!("scalar bit {}", i)), Some(b)).unwrap()
                 })
                 .map(Boolean::from)
                 .collect::<Vec<_>>();
-            
+
             let q = fixed_base_multiplication(
                 cs.namespace(|| "multiplication"),
                 &EXAMPLE_GENERATOR_REF,
@@ -816,8 +810,7 @@ mod test {
                 .take(Fr::NUM_BITS as usize)
                 .enumerate()
                 .map(|(i, b)| {
-                    Bit::alloc(cs.namespace(|| format!("scalar bit {}", i)), Some(b))
-                        .unwrap()
+                    Bit::alloc(cs.namespace(|| format!("scalar bit {}", i)), Some(b)).unwrap()
                 })
                 .map(Boolean::from)
                 .collect::<Vec<_>>();
@@ -859,8 +852,7 @@ mod test {
             // Conditionally allocate
             let mut b = if rng.next_u32() % 2 != 0 {
                 Boolean::from(
-                    Bit::alloc(cs.namespace(|| "condition"), Some(should_we_select))
-                        .unwrap(),
+                    Bit::alloc(cs.namespace(|| "condition"), Some(should_we_select)).unwrap(),
                 )
             } else {
                 Boolean::constant(should_we_select)

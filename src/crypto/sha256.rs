@@ -3,11 +3,11 @@
 //!
 //! [SHA-256]: https://tools.ietf.org/html/rfc6234
 
-use ff::{PrimeField};
 use bellman::{ConstraintSystem, SynthesisError};
+use ff::PrimeField;
 
-use crate::types::{Boolean, Bytes4};
 use crate::helpers::multieq::MultiEq;
+use crate::types::{Boolean, Bytes4};
 
 #[allow(clippy::unreadable_literal)]
 const ROUND_CONSTANTS: [u32; 64] = [
@@ -276,13 +276,10 @@ mod test {
     use rand_core::{RngCore, SeedableRng};
     use rand_xorshift::XorShiftRng;
 
-    use bellman::{
-        ConstraintSystem,
-        gadgets::test::{TestConstraintSystem}
-    };
+    use bellman::{gadgets::test::TestConstraintSystem, ConstraintSystem};
 
-    use crate::types::{Bit, Boolean};
     use super::*;
+    use crate::types::{Bit, Boolean};
 
     #[test]
     fn test_sha256_blank_hash() {

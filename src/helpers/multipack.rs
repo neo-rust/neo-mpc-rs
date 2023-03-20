@@ -1,9 +1,6 @@
 //! Helpers for packing vectors of bits into scalar field elements.
 
-use bellman::{
-    ConstraintSystem, SynthesisError,
-    gadgets::Assignment
-};
+use bellman::{gadgets::Assignment, ConstraintSystem, SynthesisError};
 use ff::PrimeField;
 
 use crate::types::{Boolean, UnallocatedNum};
@@ -75,10 +72,7 @@ pub fn compute_multipacking<Scalar: PrimeField>(bits: &[bool]) -> Vec<Scalar> {
 
 #[test]
 fn test_multipacking() {
-    use bellman::{
-        ConstraintSystem,
-        gadgets::test::TestConstraintSystem
-    };
+    use bellman::{gadgets::test::TestConstraintSystem, ConstraintSystem};
     use bls12_381::Scalar;
     use rand_core::{RngCore, SeedableRng};
     use rand_xorshift::XorShiftRng;
@@ -99,9 +93,7 @@ fn test_multipacking() {
             .iter()
             .enumerate()
             .map(|(i, &b)| {
-                Boolean::from(
-                    Bit::alloc(cs.namespace(|| format!("bit {}", i)), Some(b)).unwrap(),
-                )
+                Boolean::from(Bit::alloc(cs.namespace(|| format!("bit {}", i)), Some(b)).unwrap())
             })
             .collect::<Vec<_>>();
 

@@ -1,10 +1,7 @@
 //! Window table lookup gadgets.
 
+use bellman::{gadgets::Assignment, ConstraintSystem, SynthesisError};
 use ff::PrimeField;
-use bellman::{
-    ConstraintSystem, SynthesisError,
-    gadgets::Assignment
-};
 
 use crate::types::{Boolean, Num, UnallocatedNum};
 
@@ -188,12 +185,9 @@ where
 
 #[cfg(test)]
 mod test {
+    use super::{lookup3_xy, lookup3_xy_with_conditional_negation, synth};
     use crate::types::{Bit, Boolean};
-    use super::{synth, lookup3_xy, lookup3_xy_with_conditional_negation};
-    use bellman::{
-        ConstraintSystem,
-        gadgets::test::TestConstraintSystem
-    };
+    use bellman::{gadgets::test::TestConstraintSystem, ConstraintSystem};
 
     use bls12_381::Scalar;
     use ff::Field;

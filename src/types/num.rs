@@ -2,12 +2,9 @@
 
 use ff::{PrimeField, PrimeFieldBits};
 
-use bellman::{
-    ConstraintSystem, LinearCombination, SynthesisError, Variable,
-    gadgets::{Assignment}
-};
+use bellman::{gadgets::Assignment, ConstraintSystem, LinearCombination, SynthesisError, Variable};
 
-use super::{Bit, Boolean, field_into_bits_le};
+use super::{field_into_bits_le, Bit, Boolean};
 
 pub struct Num<Scalar: PrimeField> {
     value: Option<Scalar>,
@@ -73,10 +70,7 @@ impl<Scalar: PrimeField> Num<Scalar> {
         Scalar: PrimeFieldBits,
         CS: ConstraintSystem<Scalar>,
     {
-        pub fn kary_and<Scalar, CS>(
-            mut cs: CS,
-            v: &[Bit],
-        ) -> Result<Bit, SynthesisError>
+        pub fn kary_and<Scalar, CS>(mut cs: CS, v: &[Bit]) -> Result<Bit, SynthesisError>
         where
             Scalar: PrimeField,
             CS: ConstraintSystem<Scalar>,
@@ -417,17 +411,14 @@ impl<Scalar: PrimeField> UnallocatedNum<Scalar> {
 
 #[cfg(test)]
 mod test {
-    use bellman::{
-        ConstraintSystem,
-        gadgets::test::TestConstraintSystem
-    };
+    use bellman::{gadgets::test::TestConstraintSystem, ConstraintSystem};
     use bls12_381::Scalar;
     use ff::{Field, PrimeField, PrimeFieldBits};
     use rand_core::SeedableRng;
     use rand_xorshift::XorShiftRng;
     use std::ops::{Neg, SubAssign};
 
-    use super::{Num, Boolean};
+    use super::{Boolean, Num};
 
     #[test]
     fn test_num_alloc() {
@@ -476,10 +467,8 @@ mod test {
         {
             let mut cs = TestConstraintSystem::new();
 
-            let a =
-                Num::alloc(cs.namespace(|| "a"), || Ok(Scalar::random(&mut rng))).unwrap();
-            let b =
-                Num::alloc(cs.namespace(|| "b"), || Ok(Scalar::random(&mut rng))).unwrap();
+            let a = Num::alloc(cs.namespace(|| "a"), || Ok(Scalar::random(&mut rng))).unwrap();
+            let b = Num::alloc(cs.namespace(|| "b"), || Ok(Scalar::random(&mut rng))).unwrap();
             let condition = Boolean::constant(false);
             let (c, d) = Num::conditionally_reverse(&mut cs, &a, &b, &condition).unwrap();
 
@@ -492,10 +481,8 @@ mod test {
         {
             let mut cs = TestConstraintSystem::new();
 
-            let a =
-                Num::alloc(cs.namespace(|| "a"), || Ok(Scalar::random(&mut rng))).unwrap();
-            let b =
-                Num::alloc(cs.namespace(|| "b"), || Ok(Scalar::random(&mut rng))).unwrap();
+            let a = Num::alloc(cs.namespace(|| "a"), || Ok(Scalar::random(&mut rng))).unwrap();
+            let b = Num::alloc(cs.namespace(|| "b"), || Ok(Scalar::random(&mut rng))).unwrap();
             let condition = Boolean::constant(true);
             let (c, d) = Num::conditionally_reverse(&mut cs, &a, &b, &condition).unwrap();
 

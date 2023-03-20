@@ -1,12 +1,9 @@
 //! Gadgets for performing boolean logic.
 use ff::{PrimeField, PrimeFieldBits};
 
-use bellman::{
-    ConstraintSystem, LinearCombination, SynthesisError, Variable,
-    gadgets::{Assignment}
-};
+use bellman::{gadgets::Assignment, ConstraintSystem, LinearCombination, SynthesisError, Variable};
 
-use super::{Bit, field_into_bits_le};
+use super::{field_into_bits_le, Bit};
 
 /// This is a boolean value which may be either a constant or
 /// an interpretation of an `Bit`.
@@ -129,9 +126,7 @@ impl Boolean {
             }
             // a XOR b = (NOT a) XOR (NOT b)
             (&Boolean::Is(ref a), &Boolean::Is(ref b))
-            | (&Boolean::Not(ref a), &Boolean::Not(ref b)) => {
-                Ok(Boolean::Is(Bit::xor(cs, a, b)?))
-            }
+            | (&Boolean::Not(ref a), &Boolean::Not(ref b)) => Ok(Boolean::Is(Bit::xor(cs, a, b)?)),
         }
     }
 
@@ -154,13 +149,9 @@ impl Boolean {
                 Ok(Boolean::Is(Bit::and_not(cs, is, not)?))
             }
             // (NOT a) AND (NOT b) = a NOR b
-            (&Boolean::Not(ref a), &Boolean::Not(ref b)) => {
-                Ok(Boolean::Is(Bit::nor(cs, a, b)?))
-            }
+            (&Boolean::Not(ref a), &Boolean::Not(ref b)) => Ok(Boolean::Is(Bit::nor(cs, a, b)?)),
             // a AND b
-            (&Boolean::Is(ref a), &Boolean::Is(ref b)) => {
-                Ok(Boolean::Is(Bit::and(cs, a, b)?))
-            }
+            (&Boolean::Is(ref a), &Boolean::Is(ref b)) => Ok(Boolean::Is(Bit::and(cs, a, b)?)),
         }
     }
 
@@ -442,11 +433,11 @@ pub fn field_into_boolean_vec_le<
 #[cfg(test)]
 mod test {
     use super::{u64_into_boolean_vec_le, Boolean};
-    use crate::types::{Bit};
+    use crate::types::Bit;
     use bellman::gadgets::test::TestConstraintSystem;
     use bellman::ConstraintSystem;
     use bls12_381::Scalar;
-    use ff::{Field};
+    use ff::Field;
 
     #[test]
     fn test_enforce_equal() {
@@ -1122,12 +1113,10 @@ mod test {
                                     Boolean::from(Bit::alloc(cs, Some(false)).unwrap())
                                 }
                                 OperandType::NegatedAllocatedTrue => {
-                                    Boolean::from(Bit::alloc(cs, Some(true)).unwrap())
-                                        .not()
+                                    Boolean::from(Bit::alloc(cs, Some(true)).unwrap()).not()
                                 }
                                 OperandType::NegatedAllocatedFalse => {
-                                    Boolean::from(Bit::alloc(cs, Some(false)).unwrap())
-                                        .not()
+                                    Boolean::from(Bit::alloc(cs, Some(false)).unwrap()).not()
                                 }
                             }
                         };
@@ -1214,12 +1203,10 @@ mod test {
                                     Boolean::from(Bit::alloc(cs, Some(false)).unwrap())
                                 }
                                 OperandType::NegatedAllocatedTrue => {
-                                    Boolean::from(Bit::alloc(cs, Some(true)).unwrap())
-                                        .not()
+                                    Boolean::from(Bit::alloc(cs, Some(true)).unwrap()).not()
                                 }
                                 OperandType::NegatedAllocatedFalse => {
-                                    Boolean::from(Bit::alloc(cs, Some(false)).unwrap())
-                                        .not()
+                                    Boolean::from(Bit::alloc(cs, Some(false)).unwrap()).not()
                                 }
                             }
                         };

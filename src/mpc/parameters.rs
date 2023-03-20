@@ -5,7 +5,11 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use ff::{Field, PrimeField};
 use rand::SeedableRng;
 
-use std::{fs::File, io::{self, BufReader, Read, Write}, sync::Arc};
+use std::{
+    fs::File,
+    io::{self, BufReader, Read, Write},
+    sync::Arc,
+};
 
 use group::{prime::PrimeCurveAffine, Group};
 use pairing::{group::Wnaf, PairingCurveAffine};

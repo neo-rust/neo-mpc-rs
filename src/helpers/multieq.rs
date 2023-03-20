@@ -1,4 +1,4 @@
-use ff::{PrimeField};
+use ff::PrimeField;
 
 use bellman::{ConstraintSystem, LinearCombination, SynthesisError, Variable};
 

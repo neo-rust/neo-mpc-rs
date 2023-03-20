@@ -1,10 +1,7 @@
 //! Gadgets for allocating bits in the circuit.
 use ff::{PrimeField, PrimeFieldBits};
 
-use bellman::{
-    ConstraintSystem, SynthesisError, Variable,
-    gadgets::{Assignment}
-};
+use bellman::{gadgets::Assignment, ConstraintSystem, SynthesisError, Variable};
 
 /// Represents a variable in the constraint system which is guaranteed
 /// to be either zero or one.
@@ -266,11 +263,7 @@ impl Bit {
     }
 }
 
-pub fn field_into_bits_le<
-    Scalar: PrimeField,
-    CS: ConstraintSystem<Scalar>,
-    F: PrimeFieldBits,
->(
+pub fn field_into_bits_le<Scalar: PrimeField, CS: ConstraintSystem<Scalar>, F: PrimeFieldBits>(
     mut cs: CS,
     value: Option<F>,
 ) -> Result<Vec<Bit>, SynthesisError> {
@@ -341,12 +334,9 @@ mod test {
 
             let value = None;
             // if value is none, fail with SynthesisError
-            let is_err = Bit::alloc_conditionally(
-                cs.namespace(|| "alloc_conditionally"),
-                value,
-                &b,
-            )
-            .is_err();
+            let is_err =
+                Bit::alloc_conditionally(cs.namespace(|| "alloc_conditionally"), value, &b)
+                    .is_err();
             assert!(is_err);
         }
 
@@ -356,12 +346,9 @@ mod test {
 
             let value = Some(true);
             let b = Bit::alloc(&mut cs, Some(false)).unwrap();
-            let allocated_value = Bit::alloc_conditionally(
-                cs.namespace(|| "alloc_conditionally"),
-                value,
-                &b,
-            )
-            .unwrap();
+            let allocated_value =
+                Bit::alloc_conditionally(cs.namespace(|| "alloc_conditionally"), value, &b)
+                    .unwrap();
 
             assert!(allocated_value.get_value().unwrap());
             assert!(cs.is_satisfied());
@@ -373,8 +360,7 @@ mod test {
 
             let value = Some(true);
             let b = Bit::alloc(&mut cs, Some(true)).unwrap();
-            Bit::alloc_conditionally(cs.namespace(|| "alloc_conditionally"), value, &b)
-                .unwrap();
+            Bit::alloc_conditionally(cs.namespace(|| "alloc_conditionally"), value, &b).unwrap();
 
             assert!(!cs.is_satisfied());
         }
@@ -386,16 +372,14 @@ mod test {
             //check with false bit
             let mut cs = TestConstraintSystem::<Scalar>::new();
             let b1 = Bit::alloc(&mut cs, Some(false)).unwrap();
-            Bit::alloc_conditionally(cs.namespace(|| "alloc_conditionally"), value, &b1)
-                .unwrap();
+            Bit::alloc_conditionally(cs.namespace(|| "alloc_conditionally"), value, &b1).unwrap();
 
             assert!(cs.is_satisfied());
 
             //check with true bit
             let mut cs = TestConstraintSystem::<Scalar>::new();
             let b2 = Bit::alloc(&mut cs, Some(true)).unwrap();
-            Bit::alloc_conditionally(cs.namespace(|| "alloc_conditionally"), value, &b2)
-                .unwrap();
+            Bit::alloc_conditionally(cs.namespace(|| "alloc_conditionally"), value, &b2).unwrap();
 
             assert!(cs.is_satisfied());
         }

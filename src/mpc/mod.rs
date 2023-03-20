@@ -2,17 +2,17 @@ mod parameters;
 mod work;
 
 pub use self::{
-    parameters::{MPCParameters, verify_contribution, contains_contribution},
-    work::{MPCWork, clean_params}
+    parameters::{contains_contribution, verify_contribution, MPCParameters},
+    work::{clean_params, MPCWork},
 };
 
 #[cfg(test)]
 mod test {
-    use crate::mpc::{MPCWork, clean_params};
-    use rand::thread_rng;
-    use ff::{PrimeField};
-    use bls12_381::{Scalar};
+    use crate::mpc::{clean_params, MPCWork};
     use bellman::{Circuit, ConstraintSystem, SynthesisError};
+    use bls12_381::Scalar;
+    use ff::PrimeField;
+    use rand::thread_rng;
 
     struct AndDemo<'a, S: PrimeField> {
         xl: Option<bool>,

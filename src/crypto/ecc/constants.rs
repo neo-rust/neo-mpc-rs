@@ -2,7 +2,7 @@
 
 use bls12_381::Scalar;
 use group::{ff::Field, Curve};
-use jubjub::{ExtendedPoint};
+use jubjub::ExtendedPoint;
 
 /// The `d` constant of the twisted Edwards curve.
 pub const EDWARDS_D: Scalar = Scalar::from_raw([

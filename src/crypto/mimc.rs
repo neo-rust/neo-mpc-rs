@@ -1,5 +1,5 @@
 // Bring in some tools for using finite fields
-use ff::{PrimeField};
+use ff::PrimeField;
 
 // We'll use these interfaces to construct our circuit.
 use bellman::{Circuit, ConstraintSystem, SynthesisError};
@@ -8,7 +8,7 @@ const MIMC_ROUNDS: usize = 322;
 
 /// This is an implementation of MiMC, specifically a
 /// variant named `LongsightF322p3` for BLS12-381.
-/// See http://eprint.iacr.org/2016/492 for more 
+/// See http://eprint.iacr.org/2016/492 for more
 /// information about this construction.
 pub fn mimc<S: PrimeField>(mut xl: S, mut xr: S, constants: &[S]) -> S {
     assert_eq!(constants.len(), MIMC_ROUNDS);
