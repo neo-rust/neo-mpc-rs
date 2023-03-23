@@ -1,8 +1,11 @@
+use std::ops::{Add, BitAnd, ShrAssign, Sub};
 // Bring in some tools for using finite fiels
 use ff::PrimeField;
 
 // We'll use these interfaces to construct our circuit.
+use bellman::gadgets::test::TestConstraintSystem;
 use bellman::{ConstraintSystem, LinearCombination, SynthesisError, Variable};
+use bls12_381::Scalar;
 
 ///Here we provide some functions to create different types of integer data comparison circuits.
 ///Mainly contains 'less' and 'less_or_equal' function.Other comparison logic can be realized through certain transformations.
@@ -22,12 +25,12 @@ trait Alloc<U> {
         cs: CS,
         a: (U, bool),
         b: (U, bool),
-        w: (U, bool),
-        w_array: (Vec<U>, bool),
-        cr_array: (Vec<U>, bool),
+        w: (u64, bool),
+        w_array: (Vec<u64>, bool),
+        cr_array: (Vec<u64>, bool),
         less_or_equal: u64,
         less: u64,
-        not_all_zeros: (U, bool),
+        not_all_zeros: (u64, bool),
     ) -> Result<Range, SynthesisError>
     where
         Scalar: PrimeField,
@@ -42,12 +45,12 @@ where
         mut cs: CS,
         a: (U, bool),
         b: (U, bool),
-        w: (U, bool),
-        w_array: (Vec<U>, bool),
-        cr_array: (Vec<U>, bool),
+        w: (u64, bool),
+        w_array: (Vec<u64>, bool),
+        cr_array: (Vec<u64>, bool),
         less_or_equal: u64,
         less: u64,
-        not_all_zeros: (U, bool),
+        not_all_zeros: (u64, bool),
     ) -> Result<Self, SynthesisError>
     where
         Scalar: PrimeField,
@@ -202,20 +205,33 @@ impl Range {
     }
 }
 
-fn comparison_u64<Scalar, CS>(
+fn comparison<Scalar, CS, U>(
     mut cs: CS,
     name: &str,
-    a: (u64, bool),
-    b: (u64, bool),
+    a: (U, bool),
+    b: (U, bool),
     less_or_equal: u64,
     less: u64,
 ) -> Result<(), SynthesisError>
 where
     Scalar: PrimeField,
     CS: ConstraintSystem<Scalar>,
+    U: Copy,
+    u64: From<U>,
+    u32: From<U>,
+    u16: From<U>,
+    u8: From<U>,
 {
-    let w = ((1 << (64 - 1u64)) + (b.0 - a.0)) as u64;
-    let mut w_array = [0].repeat(64);
+    let length = match type_of(&a.0).as_str() {
+        "u64" => 64,
+        "u32" => 32,
+        "u16" => 16,
+        "u8" => 8,
+        _ => panic!("unsupport type"),
+    };
+
+    let w = (1 << (length - 1)) + u64::from(b.0) - u64::from(a.0);
+    let mut w_array = [0].repeat(length);
     let mut i = 0;
     let mut values = w.clone();
     while i < w_array.len() {
@@ -223,7 +239,7 @@ where
         values >>= 1;
         i += 1;
     }
-    let mut c_array = [0].repeat(63);
+    let mut c_array = [0].repeat(length - 1);
     c_array[0] = w_array[0];
     let mut j = 1;
     while j < c_array.len() {
@@ -243,23 +259,60 @@ where
         (not_all_zeros, a.1 & b.1),
     )
     .expect(&format!("{0}_alloc_error", name));
-    return Range::execute(cs.namespace(|| name), &r);
+    Range::execute(cs.namespace(|| name), &r)
 }
 
-fn comparison_u32<Scalar, CS>(
-    mut cs: CS,
-    name: &str,
-    a: (u32, bool),
-    b: (u32, bool),
-    less_or_equal: u64,
-    less: u64,
+pub fn less<Scalar, CS, U>(cs: CS, a: (U, bool), b: (U, bool)) -> Result<(), SynthesisError>
+where
+    Scalar: PrimeField,
+    CS: ConstraintSystem<Scalar>,
+    U: Copy,
+    u64: From<U>,
+    u32: From<U>,
+    u16: From<U>,
+    u8: From<U>,
+{
+    comparison(cs, "less", a, b, 1, 1)
+}
+
+pub fn less_or_equal<Scalar, CS, U>(
+    cs: CS,
+    a: (U, bool),
+    b: (U, bool),
 ) -> Result<(), SynthesisError>
 where
     Scalar: PrimeField,
     CS: ConstraintSystem<Scalar>,
+    U: Copy,
+    u64: From<U>,
+    u32: From<U>,
+    u16: From<U>,
+    u8: From<U>,
 {
-    let w = ((1 << (32 - 1u32)) + (b.0 - a.0)) as u32;
-    let mut w_array = [0].repeat(32);
+    comparison(cs, "less", a, b, 1, 0)
+}
+
+fn type_of<T>(_: &T) -> String {
+    std::any::type_name::<T>().to_string()
+}
+
+pub fn range_get_pub_inputs<U, Scalar>(a: (U, bool), b: (U, bool)) -> Vec<Scalar>
+where
+    Scalar: PrimeField,
+    u64: From<U>,
+    U: Copy,
+{
+    let mut pub_inputs = Vec::new();
+    let length = match type_of(&a.0).as_str() {
+        "u64" => 64,
+        "u32" => 32,
+        "u16" => 16,
+        "u8" => 8,
+        _ => panic!("unsupport type"),
+    };
+
+    let w = (1 << (length - 1)) + u64::from(b.0) - u64::from(a.0);
+    let mut w_array = [0].repeat(length);
     let mut i = 0;
     let mut values = w.clone();
     while i < w_array.len() {
@@ -267,308 +320,56 @@ where
         values >>= 1;
         i += 1;
     }
-    let mut c_array = [0].repeat(31);
+    let mut c_array = [0].repeat(length - 1);
     c_array[0] = w_array[0];
     let mut j = 1;
     while j < c_array.len() {
         c_array[j] = w_array[j] | c_array[j - 1];
         j += 1;
     }
-    let not_all_zeros = c_array.last().unwrap().clone();
-    let r = Range::alloc(
-        cs.namespace(|| format!("{0}_alloc", name)),
-        a,
-        b,
-        (w, a.1 & b.1),
-        (w_array, a.1 & b.1),
-        (c_array, a.1 & b.1),
-        less_or_equal,
-        less,
-        (not_all_zeros, a.1 & b.1),
-    )
-    .expect(&format!("{0}_alloc_error", name));
-    return Range::execute(cs.namespace(|| name), &r);
-}
+    let not_all_zeros = (c_array.last().unwrap().clone());
 
-fn comparison_u16<Scalar, CS>(
-    mut cs: CS,
-    name: &str,
-    a: (u16, bool),
-    b: (u16, bool),
-    less_or_equal: u64,
-    less: u64,
-) -> Result<(), SynthesisError>
-where
-    Scalar: PrimeField,
-    CS: ConstraintSystem<Scalar>,
-{
-    let w = ((1 << (16 - 1u16)) + (b.0 - a.0)) as u16;
-    let mut w_array = [0].repeat(16);
-    let mut i = 0;
-    let mut values = w.clone();
-    while i < w_array.len() {
-        w_array[i] = values & 1;
-        values >>= 1;
-        i += 1;
-    }
-    let mut c_array = [0].repeat(15);
-    c_array[0] = w_array[0];
-    let mut j = 1;
-    while j < c_array.len() {
-        c_array[j] = w_array[j] | c_array[j - 1];
-        j += 1;
-    }
-    let not_all_zeros = c_array.last().unwrap().clone();
-    let r = Range::alloc(
-        cs.namespace(|| format!("{0}_alloc", name)),
-        a,
-        b,
-        (w, a.1 & b.1),
-        (w_array, a.1 & b.1),
-        (c_array, a.1 & b.1),
-        less_or_equal,
-        less,
-        (not_all_zeros, a.1 & b.1),
-    )
-    .expect(&format!("{0}_alloc_error", name));
-    return Range::execute(cs.namespace(|| name), &r);
-}
+    let a_var = Scalar::from(u64::from(a.0));
+    let b_var = Scalar::from(u64::from(b.0));
+    let w_var = Scalar::from(w);
 
-fn comparison_u8<Scalar, CS>(
-    mut cs: CS,
-    name: &str,
-    a: (u8, bool),
-    b: (u8, bool),
-    less_or_equal: u64,
-    less: u64,
-) -> Result<(), SynthesisError>
-where
-    Scalar: PrimeField,
-    CS: ConstraintSystem<Scalar>,
-{
-    let w = ((1 << (8 - 1u8)) + (b.0 - a.0)) as u8;
-    let mut w_array = [0].repeat(8);
-    let mut i = 0;
-    let mut values = w.clone();
-    while i < w_array.len() {
-        w_array[i] = values & 1;
-        values >>= 1;
-        i += 1;
-    }
-    let mut c_array = [0].repeat(7);
-    c_array[0] = w_array[0];
-    let mut j = 1;
-    while j < c_array.len() {
-        c_array[j] = w_array[j] | c_array[j - 1];
-        j += 1;
-    }
-    let not_all_zeros = c_array.last().unwrap().clone();
-    let r = Range::alloc(
-        cs.namespace(|| format!("{0}_alloc", name)),
-        a,
-        b,
-        (w, a.1 & b.1),
-        (w_array, a.1 & b.1),
-        (c_array, a.1 & b.1),
-        less_or_equal,
-        less,
-        (not_all_zeros, a.1 & b.1),
-    )
-    .expect(&format!("{0}_alloc_error", name));
-    return Range::execute(cs.namespace(|| name), &r);
-}
-
-pub fn less_or_equal_u64<Scalar, CS>(
-    cs: CS,
-    a: (u64, bool),
-    b: (u64, bool),
-) -> Result<(), SynthesisError>
-where
-    Scalar: PrimeField,
-    CS: ConstraintSystem<Scalar>,
-{
-    comparison_u64(cs, "less_or_equal", a, b, 1, 0)
-}
-
-pub fn less_or_equal_u32<Scalar, CS>(
-    cs: CS,
-    a: (u32, bool),
-    b: (u32, bool),
-) -> Result<(), SynthesisError>
-where
-    Scalar: PrimeField,
-    CS: ConstraintSystem<Scalar>,
-{
-    comparison_u32(cs, "less_or_equal", a, b, 1, 0)
-}
-
-pub fn less_or_equal_u16<Scalar, CS>(
-    cs: CS,
-    a: (u16, bool),
-    b: (u16, bool),
-) -> Result<(), SynthesisError>
-where
-    Scalar: PrimeField,
-    CS: ConstraintSystem<Scalar>,
-{
-    comparison_u16(cs, "less_or_equal", a, b, 1, 0)
-}
-
-pub fn less_or_equal_u8<Scalar, CS>(
-    cs: CS,
-    a: (u8, bool),
-    b: (u8, bool),
-) -> Result<(), SynthesisError>
-where
-    Scalar: PrimeField,
-    CS: ConstraintSystem<Scalar>,
-{
-    comparison_u8(cs, "less_or_equal", a, b, 1, 0)
-}
-
-pub fn less_u64<Scalar, CS>(cs: CS, a: (u64, bool), b: (u64, bool)) -> Result<(), SynthesisError>
-where
-    Scalar: PrimeField,
-    CS: ConstraintSystem<Scalar>,
-{
-    comparison_u64(cs, "less", a, b, 1, 1)
-}
-
-pub fn less_u32<Scalar, CS>(cs: CS, a: (u32, bool), b: (u32, bool)) -> Result<(), SynthesisError>
-where
-    Scalar: PrimeField,
-    CS: ConstraintSystem<Scalar>,
-{
-    comparison_u32(cs, "less", a, b, 1, 1)
-}
-
-pub fn less_u16<Scalar, CS>(cs: CS, a: (u16, bool), b: (u16, bool)) -> Result<(), SynthesisError>
-where
-    Scalar: PrimeField,
-    CS: ConstraintSystem<Scalar>,
-{
-    comparison_u16(cs, "less", a, b, 1, 1)
-}
-
-pub fn less_u8<Scalar, CS>(cs: CS, a: (u8, bool), b: (u8, bool)) -> Result<(), SynthesisError>
-where
-    Scalar: PrimeField,
-    CS: ConstraintSystem<Scalar>,
-{
-    comparison_u8(cs, "less", a, b, 1, 1)
+    if a.1 {
+        pub_inputs.push(a_var)
+    };
+    if b.1 {
+        pub_inputs.push(b_var)
+    };
+    if a.1 & b.1 {
+        pub_inputs.push(w_var);
+        pub_inputs.push(Scalar::from(not_all_zeros));
+        for i in 0..w_array.len() {
+            let w_var = *w_array.get(i).unwrap();
+            pub_inputs.push(Scalar::from(w_var.into()));
+        }
+        for i in 0..c_array.len() {
+            let cr_var = *c_array.get(i).unwrap();
+            pub_inputs.push(Scalar::from(cr_var.into()));
+        }
+    };
+    pub_inputs
 }
 
 #[cfg(test)]
 mod test {
-    use crate::helpers::range::{
-        less_or_equal_u16, less_or_equal_u32, less_or_equal_u64, less_or_equal_u8, less_u16,
-        less_u32, less_u64, less_u8,
-    };
+    use crate::helpers::range::{less, less_or_equal, range_get_pub_inputs};
     use bellman::{gadgets::test::TestConstraintSystem, ConstraintSystem};
     use bls12_381::Scalar;
 
     #[test]
-    fn test_less_or_equal_u64() {
-        // pub left
+    fn test_less_or_equal() {
         let mut cs = TestConstraintSystem::<Scalar>::new();
-        let mut result = less_or_equal_u64(cs.namespace(|| "less_or_equal_u64"), (1, true), (2, false));
-        assert!(result.is_ok());
-        assert!(cs.is_satisfied());
-        assert!(cs.verify(&[Scalar::from(1)]));
-
-        // no pub
-        cs = TestConstraintSystem::<Scalar>::new();
-        result = less_or_equal_u64(cs.namespace(|| "less_or_equal_u64"), (1, false), (2, false));
-        assert!(result.is_ok());
-        assert!(cs.is_satisfied());
-        assert!(cs.verify(&[]));
-    }
-
-    #[test]
-    fn test_less_or_equal_u32() {
-        let mut cs = TestConstraintSystem::<Scalar>::new();
-        let mut result = less_or_equal_u32(cs.namespace(|| "less_or_equal_u32"), (1, true), (2, false));
+        let mut result = less_or_equal(cs.namespace(|| "less_or_equal"), (1, true), (2, false));
         assert!(result.is_ok());
         assert!(cs.is_satisfied());
         assert!(cs.verify(&[Scalar::from(1)]));
 
         cs = TestConstraintSystem::<Scalar>::new();
-        result = less_or_equal_u32(cs.namespace(|| "less_or_equal_u32"), (1, false), (2, false));
-        assert!(result.is_ok());
-        assert!(cs.is_satisfied());
-        assert!(cs.verify(&[]));
-    }
-
-    #[test]
-    fn test_less_or_equal_u16() {
-        let mut cs = TestConstraintSystem::<Scalar>::new();
-        let mut result = less_or_equal_u16(cs.namespace(|| "less_or_equal_u16"), (1, true), (2, false));
-        assert!(result.is_ok());
-        assert!(cs.is_satisfied());
-        assert!(cs.verify(&[Scalar::from(1)]));
-
-        cs = TestConstraintSystem::<Scalar>::new();
-        result = less_or_equal_u16(cs.namespace(|| "less_or_equal_u16"), (1, false), (2, false));
-        assert!(result.is_ok());
-        assert!(cs.is_satisfied());
-        assert!(cs.verify(&[]));
-    }
-
-    #[test]
-    fn test_less_or_equal_u8() {
-        let mut cs = TestConstraintSystem::<Scalar>::new();
-        let mut result = less_or_equal_u8(cs.namespace(|| "less_or_equal_u8"), (1, true), (2, false));
-        assert!(result.is_ok());
-        assert!(cs.is_satisfied());
-        assert!(cs.verify(&[Scalar::from(1)]));
-
-        cs = TestConstraintSystem::<Scalar>::new();
-        result = less_or_equal_u8(cs.namespace(|| "less_or_equal_u8"), (1, false), (2, false));
-        assert!(result.is_ok());
-        assert!(cs.is_satisfied());
-        assert!(cs.verify(&[]));
-    }
-
-    #[test]
-    fn test_less_u64() {
-        let mut cs = TestConstraintSystem::<Scalar>::new();
-        let mut result = less_u64(cs.namespace(|| "less_u64"), (1, true), (2, false));
-        assert!(result.is_ok());
-        assert!(cs.is_satisfied());
-        assert!(cs.verify(&[Scalar::from(1)]));
-
-        cs = TestConstraintSystem::<Scalar>::new();
-        result = less_u64(cs.namespace(|| "less_u64"), (1, false), (2, false));
-        assert!(result.is_ok());
-        assert!(cs.is_satisfied());
-        assert!(cs.verify(&[]));
-    }
-
-    #[test]
-    fn test_less_u32() {
-        let mut cs = TestConstraintSystem::<Scalar>::new();
-        let mut result = less_u32(cs.namespace(|| "less_u32"), (1, true), (2, false));
-        assert!(result.is_ok());
-        assert!(cs.is_satisfied());
-        assert!(cs.verify(&[Scalar::from(1)]));
-
-        cs = TestConstraintSystem::<Scalar>::new();
-        result = less_u32(cs.namespace(|| "less_u32"), (1, false), (2, false));
-        assert!(result.is_ok());
-        assert!(cs.is_satisfied());
-        assert!(cs.verify(&[]));
-    }
-
-    #[test]
-    fn test_less_u16() {
-        let mut cs = TestConstraintSystem::<Scalar>::new();
-        let mut result = less_u16(cs.namespace(|| "less_u16"), (1, true), (2, false));
-        assert!(result.is_ok());
-        assert!(cs.is_satisfied());
-        assert!(cs.verify(&[Scalar::from(1)]));
-
-        cs = TestConstraintSystem::<Scalar>::new();
-        result = less_u16(cs.namespace(|| "less_u16"), (1, false), (2, false));
+        result = less_or_equal(cs.namespace(|| "less_or_equal"), (1, false), (2, false));
         assert!(result.is_ok());
         assert!(cs.is_satisfied());
         assert!(cs.verify(&[]));
@@ -577,15 +378,23 @@ mod test {
     #[test]
     fn test_less_u8() {
         let mut cs = TestConstraintSystem::<Scalar>::new();
-        let mut result = less_u8(cs.namespace(|| "less_u8"), (1, true), (2, false));
+        let mut result = less(cs.namespace(|| "less"), (1, true), (2, false));
         assert!(result.is_ok());
         assert!(cs.is_satisfied());
         assert!(cs.verify(&[Scalar::from(1)]));
 
         cs = TestConstraintSystem::<Scalar>::new();
-        result = less_u8(cs.namespace(|| "less_u8"), (1, false), (2, false));
+        result = less(cs.namespace(|| "less"), (1, false), (2, false));
         assert!(result.is_ok());
         assert!(cs.is_satisfied());
         assert!(cs.verify(&[]));
+    }
+
+    #[test]
+    fn test_range_get_pub_inputs() {
+        assert_eq!(
+            range_get_pub_inputs::<u8, Scalar>((1u8, true), (2u8, true)).len(),
+            19
+        );
     }
 }

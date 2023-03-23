@@ -8,7 +8,7 @@ pub use self::{
 
 #[cfg(test)]
 mod test {
-    use crate::helpers::range::less_u8;
+    use crate::helpers::range::{less, less_or_equal, range_get_pub_inputs};
     use crate::mpc::{clean_params, MPCWork};
     use bellman::groth16::{create_proof, prepare_verifying_key, verify_proof};
     use bellman::{Circuit, ConstraintSystem, SynthesisError};
@@ -28,7 +28,7 @@ mod test {
         fn synthesize<CS: ConstraintSystem<S>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
             let a = self.a.unwrap();
             let b = self.b.unwrap();
-            less_u8(cs, (a, false), (b, true))
+            less(cs, (a, false), (b, true))
         }
     }
 
@@ -43,7 +43,7 @@ mod test {
         };
         // Init MPC
         let mut mpc = MPCWork::new(c).unwrap();
-        // Contribute
+        // players contribute and verify
         let mut contrib = mpc.contribute(&mut rng);
         mpc.write_params_to("parameters_0");
         for i in 0..3 {
@@ -57,7 +57,7 @@ mod test {
             contrib = mpc_inner.contribute(&mut rng);
             mpc_inner.write_params_to(format!("parameters_{}", i + 1).as_str());
         }
-
+        //use params to create proof
         let mpc = MPCWork::read_params_from(format!("parameters_{}", 3).as_str()).unwrap();
         let mut params = mpc.params.get_params();
         let pvk = prepare_verifying_key(&params.vk);
@@ -73,23 +73,14 @@ mod test {
             //create_random_proof(c, &params, &mut rng).unwrap()
             create_proof(c, &*params, r, s).unwrap()
         };
-
-        assert!(verify_proof(
-            &pvk,
-            &proof,
-            &[Scalar::from(<u8 as Into<u64>>::into(constants.unwrap()))]
-        )
-        .is_ok());
+        //verify proof
+        let pub_inputs_v: Vec<Scalar> = range_get_pub_inputs((1u8, false), (2u8, true));
+        assert!(verify_proof(&pvk, &proof, &pub_inputs_v).is_ok());
         let proof_a = proof.a.to_uncompressed();
-
         let proof_b = proof.b.to_uncompressed();
-
         let proof_c = proof.c.to_uncompressed();
-
         println!("A Point: {:?}", proof_a);
-
         println!("B Point: {:?}", proof_b);
-
         println!("C Point: {:?}", proof_c);
 
         for i in 0..4 {
