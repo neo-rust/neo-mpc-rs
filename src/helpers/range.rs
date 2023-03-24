@@ -1,11 +1,11 @@
 use std::ops::{Add, BitAnd, ShrAssign, Sub};
+
 // Bring in some tools for using finite fiels
+use bls12_381::Scalar;
 use ff::PrimeField;
 
 // We'll use these interfaces to construct our circuit.
-use bellman::gadgets::test::TestConstraintSystem;
 use bellman::{ConstraintSystem, LinearCombination, SynthesisError, Variable};
-use bls12_381::Scalar;
 
 ///Here we provide some functions to create different types of integer data comparison circuits.
 ///Mainly contains 'less' and 'less_or_equal' function.Other comparison logic can be realized through certain transformations.
@@ -58,7 +58,7 @@ where
     {
         let a_var = Scalar::from(a.0.into());
         let b_var = Scalar::from(b.0.into());
-        let w_var = Scalar::from(w.0.into());
+        let w_var = Scalar::from(w.0);
         let a_v = match a.1 {
             true => cs.alloc_input(|| "a", || Ok(a_var))?,
             false => cs.alloc(|| "a", || Ok(a_var))?,
@@ -72,7 +72,7 @@ where
             false => cs.alloc(|| "w", || Ok(w_var))?,
         };
 
-        let not_all_zeros_var = Scalar::from(not_all_zeros.0.into());
+        let not_all_zeros_var = Scalar::from(not_all_zeros.0);
         let not_all_zeros_v = match not_all_zeros.1 {
             true => cs.alloc_input(|| "not_all_zeros", || Ok(not_all_zeros_var))?,
             false => cs.alloc(|| "not_all_zeros", || Ok(not_all_zeros_var))?,
@@ -81,14 +81,8 @@ where
         for i in 0..w_array.0.len() {
             let w_var = *w_array.0.get(i).unwrap();
             let w_v = match w_array.1 {
-                true => cs.alloc_input(
-                    || format!("w_array_{}", i),
-                    || Ok(Scalar::from(w_var.into())),
-                ),
-                false => cs.alloc(
-                    || format!("w_array_{}", i),
-                    || Ok(Scalar::from(w_var.into())),
-                ),
+                true => cs.alloc_input(|| format!("w_array_{}", i), || Ok(Scalar::from(w_var))),
+                false => cs.alloc(|| format!("w_array_{}", i), || Ok(Scalar::from(w_var))),
             };
             w_array_v.push(w_v.unwrap());
         }
@@ -96,14 +90,8 @@ where
         for i in 0..cr_array.0.len() {
             let cr_var = *cr_array.0.get(i).unwrap();
             let cr_v = match cr_array.1 {
-                true => cs.alloc_input(
-                    || format!("cr_array_{}", i),
-                    || Ok(Scalar::from(cr_var.into())),
-                ),
-                false => cs.alloc(
-                    || format!("cr_array_{}", i),
-                    || Ok(Scalar::from(cr_var.into())),
-                ),
+                true => cs.alloc_input(|| format!("cr_array_{}", i), || Ok(Scalar::from(cr_var))),
+                false => cs.alloc(|| format!("cr_array_{}", i), || Ok(Scalar::from(cr_var))),
             };
             cr_array_v.push(cr_v.unwrap());
         }
@@ -122,21 +110,21 @@ where
 }
 
 impl Range {
-    pub fn execute<Scalar, CS>(mut cs: CS, input: &Range) -> Result<(), SynthesisError>
+    pub fn execute<Scalar, CS>(&self, mut cs: CS) -> Result<(), SynthesisError>
     where
         Scalar: PrimeField,
         CS: ConstraintSystem<Scalar>,
     {
-        let a = input.a;
-        let b = input.b;
-        let n = input.w_array.len();
-        let w = input.w;
+        let a = self.a;
+        let b = self.b;
+        let n = self.w_array.len();
+        let w = self.w;
         let exp2n = 1 << (n - 1);
-        let w_array = &input.w_array;
-        let cr_array = &input.cr_array;
-        let not_all_zeros = input.not_all_zeros;
-        let less_or_equal = input.less_or_equal;
-        let less = input.less;
+        let w_array = &self.w_array;
+        let cr_array = &self.cr_array;
+        let not_all_zeros = self.not_all_zeros;
+        let less_or_equal = self.less_or_equal;
+        let less = self.less;
         cs.enforce(
             || "w=2^n+b-a",
             |lc| lc + w,
@@ -259,7 +247,7 @@ where
         (not_all_zeros, a.1 & b.1),
     )
     .expect(&format!("{0}_alloc_error", name));
-    Range::execute(cs.namespace(|| name), &r)
+    r.execute(cs.namespace(|| name))
 }
 
 pub fn less<Scalar, CS, U>(cs: CS, a: (U, bool), b: (U, bool)) -> Result<(), SynthesisError>
@@ -327,7 +315,7 @@ where
         c_array[j] = w_array[j] | c_array[j - 1];
         j += 1;
     }
-    let not_all_zeros = (c_array.last().unwrap().clone());
+    let not_all_zeros = c_array.last().unwrap().clone();
 
     let a_var = Scalar::from(u64::from(a.0));
     let b_var = Scalar::from(u64::from(b.0));
