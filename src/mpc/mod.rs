@@ -8,7 +8,7 @@ pub use self::{
 
 #[cfg(test)]
 mod test {
-    use crate::helpers::range::{less, less_or_equal, range_get_pub_inputs};
+    use crate::helpers::range::{less, less_or_equal, range_pub};
     use crate::mpc::{clean_params, MPCWork};
     use bellman::groth16::{create_proof, prepare_verifying_key, verify_proof};
     use bellman::{Circuit, ConstraintSystem, SynthesisError};
@@ -74,7 +74,7 @@ mod test {
             create_proof(c, &*params, r, s).unwrap()
         };
         //verify proof
-        let pub_inputs_v: Vec<Scalar> = range_get_pub_inputs((1u8, false), (2u8, true));
+        let pub_inputs_v: Vec<Scalar> = range_pub((1u8, false), (2u8, true));
         assert!(verify_proof(&pvk, &proof, &pub_inputs_v).is_ok());
         let proof_a = proof.a.to_uncompressed();
         let proof_b = proof.b.to_uncompressed();

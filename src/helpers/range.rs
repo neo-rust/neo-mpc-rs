@@ -284,7 +284,7 @@ fn type_of<T>(_: &T) -> String {
     std::any::type_name::<T>().to_string()
 }
 
-pub fn range_get_pub_inputs<U, Scalar>(a: (U, bool), b: (U, bool)) -> Vec<Scalar>
+pub fn range_pub<U, Scalar>(a: (U, bool), b: (U, bool)) -> Vec<Scalar>
 where
     Scalar: PrimeField,
     u64: From<U>,
@@ -344,7 +344,7 @@ where
 
 #[cfg(test)]
 mod test {
-    use crate::helpers::range::{less, less_or_equal, range_get_pub_inputs};
+    use crate::helpers::range::{less, less_or_equal, range_pub};
     use bellman::{gadgets::test::TestConstraintSystem, ConstraintSystem};
     use bls12_381::Scalar;
 
@@ -380,9 +380,6 @@ mod test {
 
     #[test]
     fn test_range_get_pub_inputs() {
-        assert_eq!(
-            range_get_pub_inputs::<u8, Scalar>((1u8, true), (2u8, true)).len(),
-            19
-        );
+        assert_eq!(range_pub::<u8, Scalar>((1u8, true), (2u8, true)).len(), 19);
     }
 }
