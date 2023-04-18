@@ -1,7 +1,4 @@
-use std::ops::{Add, BitAnd, ShrAssign, Sub};
-
 // Bring in some tools for using finite fiels
-use bls12_381::Scalar;
 use ff::PrimeField;
 
 // We'll use these interfaces to construct our circuit.
