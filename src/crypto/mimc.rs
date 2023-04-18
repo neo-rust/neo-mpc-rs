@@ -1,8 +1,8 @@
 // Bring in some tools for using finite fields
-// We'll use these interfaces to construct our circuit.
-use bellman::{Circuit, ConstraintSystem, SynthesisError};
 use ff::PrimeField;
-use pairing::Engine;
+
+// We'll use these interfaces to construct our circuit.
+use bellman::{ConstraintSystem, SynthesisError};
 
 const MIMC_ROUNDS: usize = 322;
 
@@ -108,12 +108,11 @@ where
 
 #[cfg(test)]
 mod test {
-    use crate::crypto::mimc::MIMC_ROUNDS;
-    use crate::crypto::mimc::{mimc, mimc_pub};
+    use crate::crypto::mimc::{mimc, mimc_pub, MIMC_ROUNDS};
     use bellman::{gadgets::test::TestConstraintSystem, ConstraintSystem};
     use bls12_381::Scalar;
     use ff::Field;
-    use rand::{thread_rng, Rng};
+    use rand::thread_rng;
 
     #[test]
     fn test_mimc() {
@@ -126,7 +125,7 @@ mod test {
         let xr = Scalar::random(&mut rng);
         let image = mimc_pub(xl, xr, &constants);
 
-        let mut result = mimc(cs.namespace(|| "mimc"), Some(xl), Some(xr), &constants);
+        let result = mimc(cs.namespace(|| "mimc"), Some(xl), Some(xr), &constants);
         assert!(result.is_ok());
         assert!(cs.is_satisfied());
         assert!(cs.verify(&[image]));
