@@ -1,4 +1,4 @@
-# phase2 [![Crates.io](https://img.shields.io/crates/v/phase2.svg)](https://crates.io/crates/phase2) #
+# neo-zkp-rs [![Crates.io](https://img.shields.io/crates/v/phase2.svg)](https://crates.io/crates/phase2) #
 
 Fork the great  [phase2](https://github.com/ebfull/phase2).
 This library is still under development.
