@@ -1,8 +1,12 @@
+mod keypair;
+mod mpc;
 mod parameters;
 mod work;
 
 pub use self::{
-	parameters::{contains_contribution, verify_contribution, MPCParameters},
+	keypair::*,
+	mpc::MPCParameters,
+	parameters::{contains_contribution, verify_contribution},
 	work::{clean_params, MPCWork},
 };
 
