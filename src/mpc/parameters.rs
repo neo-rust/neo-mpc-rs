@@ -208,7 +208,13 @@ impl MPCParameters {
 		}
 
 		// Try to load "phase1radix2m{}"
-		let f = match File::open(format!("phase1radix2m{}", exp)) {
+		let parameters = if cfg!(test) {
+			format!("src/parameters/test/phase1radix2m{}", exp)
+		} else {
+			format!("src/parameters/production/phase1radix2m{}", exp)
+		};
+
+		let f = match File::open(parameters) {
 			Ok(f) => f,
 			Err(e) => {
 				panic!("Couldn't load phase1radix2m{}: {:?}", exp, e);

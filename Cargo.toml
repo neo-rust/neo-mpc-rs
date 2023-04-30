@@ -1,12 +1,11 @@
 [package]
-name = "phase2"
-version = "0.2.2"
+name = "neo-mpc-rs"
+version = "0.0.9"
 authors = ["doubiliu", "Hu Shili", "Sean Bowe <ewillbefull@gmail.com>"]
 description = "Library for performing MPCs for creating zk-SNARK public parameters"
-documentation = "https://docs.rs/phase2"
-homepage = "https://github.com/ebfull/phase2"
+homepage = "https://github.com/neo-rust/neo-mpc-rs"
 license = "MIT/Apache-2.0"
-repository = "https://github.com/ebfull/phase2"
+repository = "https://github.com/neo-rust/neo-mpc-rs"
 edition = "2021"
 
 [dependencies]

@@ -57,7 +57,7 @@ mod test {
 		}
 		//use params to create proof
 		let mpc = MPCWork::read_params_from(format!("parameters_{}", 3).as_str()).unwrap();
-		let mut params = mpc.params.get_params();
+		let params = mpc.params.get_params();
 		let pvk = prepare_verifying_key(&params.vk);
 
 		println!("Creating proofs...");
