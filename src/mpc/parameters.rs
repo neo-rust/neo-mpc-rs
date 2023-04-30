@@ -6,6 +6,7 @@ use ff::{Field, PrimeField};
 use rand::SeedableRng;
 
 use std::{
+	env,
 	fs::File,
 	io::{self, BufReader, Read, Write},
 	sync::Arc,
@@ -208,11 +209,13 @@ impl MPCParameters {
 		}
 
 		// Try to load "phase1radix2m{}"
-		let parameters = if cfg!(test) {
-			format!("src/parameters/test/phase1radix2m{}", exp)
-		} else {
-			format!("src/parameters/production/phase1radix2m{}", exp)
-		};
+		let parameters = env::var("PARAMETERS_PATH").unwrap_or_else(|_e| {
+			if cfg!(test) {
+				format!("src/parameters/test/phase1radix2m{}", exp)
+			} else {
+				format!("src/parameters/production/phase1radix2m{}", exp)
+			}
+		});
 
 		let f = match File::open(parameters) {
 			Ok(f) => f,
@@ -427,7 +430,7 @@ impl MPCParameters {
 			&worker,
 		);
 
-		// Evaluate for auxillary variables.
+		// Evaluate for auxiliary variables.
 		eval(
 			coeffs_g1.clone(),
 			coeffs_g2.clone(),
@@ -526,7 +529,7 @@ impl MPCParameters {
 			let chunk_size = if bases.len() < cpus { 1 } else { bases.len() / cpus };
 
 			// Perform wNAF over multiple cores, placing results into `projective`.
-			crossbeam::scope(|scope| {
+			let _ = crossbeam::scope(|scope| {
 				for (bases, projective) in
 					bases.chunks_mut(chunk_size).zip(projective.chunks_mut(chunk_size))
 				{
@@ -555,7 +558,8 @@ impl MPCParameters {
 						);
 					});
 				}
-			});
+			})
+			.expect("TODO: panic message");
 
 			// Turn it all back into affine points
 			for (projective, affine) in projective.iter().zip(bases.iter_mut()) {
@@ -1016,7 +1020,8 @@ fn merge_pairs(v1: &[G1Affine], v2: &[G1Affine]) -> (G1Affine, G1Affine) {
 				*ssx += &local_sx;
 			});
 		}
-	});
+	})
+	.expect("TODO: panic message");
 
 	let s = s.lock().unwrap().to_owned().into();
 	let sx = sx.lock().unwrap().to_owned().into();
