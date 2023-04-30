@@ -1,5 +1,5 @@
 use crate::mpc::{
-	hash_to_g2, merge_pairs, same_ratio, HashWriter, KeypairAssembly, PrivateKey, PublicKey,
+	eval, hash_to_g2, merge_pairs, same_ratio, HashWriter, KeypairAssembly, PrivateKey, PublicKey,
 };
 use bellman::{
 	groth16::{Parameters, VerifyingKey},
@@ -177,118 +177,6 @@ impl MPCParameters {
 		let mut a_g1 = vec![G1Projective::identity(); assembly.num_inputs + assembly.num_aux];
 		let mut b_g1 = vec![G1Projective::identity(); assembly.num_inputs + assembly.num_aux];
 		let mut b_g2 = vec![G2Projective::identity(); assembly.num_inputs + assembly.num_aux];
-
-		fn eval(
-			// Lagrange coefficients for tau
-			coeffs_g1: Arc<Vec<G1Affine>>,
-			coeffs_g2: Arc<Vec<G2Affine>>,
-			alpha_coeffs_g1: Arc<Vec<G1Affine>>,
-			beta_coeffs_g1: Arc<Vec<G1Affine>>,
-
-			// QAP polynomials
-			at: &[Vec<(Scalar, usize)>],
-			bt: &[Vec<(Scalar, usize)>],
-			ct: &[Vec<(Scalar, usize)>],
-
-			// Resulting evaluated QAP polynomials
-			a_g1: &mut [G1Projective],
-			b_g1: &mut [G1Projective],
-			b_g2: &mut [G2Projective],
-			ext: &mut [G1Projective],
-
-			// Worker
-			worker: &Worker,
-		) {
-			// Sanity check
-			assert_eq!(a_g1.len(), at.len());
-			assert_eq!(a_g1.len(), bt.len());
-			assert_eq!(a_g1.len(), ct.len());
-			assert_eq!(a_g1.len(), b_g1.len());
-			assert_eq!(a_g1.len(), b_g2.len());
-			assert_eq!(a_g1.len(), ext.len());
-
-			// Evaluate polynomials in multiple threads
-			worker.scope(a_g1.len(), |scope, chunk| {
-				for ((((((a_g1, b_g1), b_g2), ext), at), bt), ct) in a_g1
-					.chunks_mut(chunk)
-					.zip(b_g1.chunks_mut(chunk))
-					.zip(b_g2.chunks_mut(chunk))
-					.zip(ext.chunks_mut(chunk))
-					.zip(at.chunks(chunk))
-					.zip(bt.chunks(chunk))
-					.zip(ct.chunks(chunk))
-				{
-					let coeffs_g1 = coeffs_g1.clone();
-					let coeffs_g2 = coeffs_g2.clone();
-					let alpha_coeffs_g1 = alpha_coeffs_g1.clone();
-					let beta_coeffs_g1 = beta_coeffs_g1.clone();
-
-					scope.spawn(move |_| {
-						for ((((((a_g1, b_g1), b_g2), ext), at), bt), ct) in a_g1
-							.iter_mut()
-							.zip(b_g1.iter_mut())
-							.zip(b_g2.iter_mut())
-							.zip(ext.iter_mut())
-							.zip(at.iter())
-							.zip(bt.iter())
-							.zip(ct.iter())
-						{
-							for &(coeff, lag) in at {
-								*a_g1 = a_g1.add(&(coeffs_g1[lag] * coeff));
-								*ext = ext.add(&(beta_coeffs_g1[lag] * coeff));
-							}
-
-							for &(coeff, lag) in bt {
-								*b_g1 = b_g1.add(&(coeffs_g1[lag] * coeff));
-								*b_g2 = b_g2.add(&(coeffs_g2[lag] * coeff));
-								*ext = ext.add(&(alpha_coeffs_g1[lag] * coeff));
-							}
-
-							for &(coeff, lag) in ct {
-								*ext = ext.add(&(coeffs_g1[lag] * coeff));
-							}
-						}
-
-						// Batch normalize
-						let mut na_g1 = vec![G1Affine::identity(); a_g1.len()];
-						G1Projective::batch_normalize(a_g1, &mut na_g1[..]);
-						a_g1.copy_from_slice(
-							na_g1
-								.iter()
-								.map(|g| G1Projective::from(g))
-								.collect::<Vec<G1Projective>>()
-								.as_slice(),
-						);
-						let mut nb_g1 = vec![G1Affine::identity(); b_g1.len()];
-						G1Projective::batch_normalize(b_g1, &mut nb_g1[..]);
-						b_g1.copy_from_slice(
-							nb_g1
-								.iter()
-								.map(|g| G1Projective::from(g))
-								.collect::<Vec<G1Projective>>()
-								.as_slice(),
-						);
-						let mut nb_g2 = vec![G2Affine::identity(); b_g2.len()];
-						G2Projective::batch_normalize(b_g2, &mut nb_g2[..]);
-						b_g2.copy_from_slice(
-							nb_g2
-								.iter()
-								.map(|g| G2Projective::from(g))
-								.collect::<Vec<G2Projective>>()
-								.as_slice(),
-						);
-						let mut next = vec![G1Affine::identity(); ext.len()];
-						G1Projective::batch_normalize(ext, &mut next[..]);
-						ext.copy_from_slice(
-							next.iter()
-								.map(|g| G1Projective::from(g))
-								.collect::<Vec<G1Projective>>()
-								.as_slice(),
-						);
-					});
-				}
-			});
-		}
 
 		let worker = Worker::new();
 

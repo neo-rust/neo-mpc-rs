@@ -1,15 +1,10 @@
 use bellman::{ConstraintSystem, Index, LinearCombination, SynthesisError, Variable};
 use blake2_rfc::blake2b::Blake2b;
-use bls12_381::{G1Affine, G1Projective, G2Affine, G2Projective, Scalar};
-use ff::{Field, PrimeField};
-use group::{prime::PrimeCurveAffine, Group, Wnaf};
-use pairing::PairingCurveAffine;
-use rand_chacha::ChaCha20Rng;
-use rand_core::SeedableRng;
+use bls12_381::{G1Affine, G2Affine, Scalar};
+use ff::PrimeField;
 use std::{
 	io,
 	io::{Read, Write},
-	sync::Arc,
 };
 
 /// This is our assembly structure that we'll use to synthesize the
@@ -256,86 +251,4 @@ impl<W: Write> Write for HashWriter<W> {
 	fn flush(&mut self) -> io::Result<()> {
 		self.writer.flush()
 	}
-}
-
-/// Checks if pairs have the same ratio.
-pub fn same_ratio<G: PairingCurveAffine>(g1: (G, G), g2: (G::Pair, G::Pair)) -> bool {
-	g1.0.pairing_with(&g2.1) == g1.1.pairing_with(&g2.0)
-}
-
-/// Hashes to G2 using the first 32 bytes of `digest`. Panics if `digest` is less
-/// than 32 bytes.
-pub fn hash_to_g2(digest: &[u8]) -> G2Projective {
-	assert!(digest.len() >= 32);
-
-	let mut seed = [0u8; 32];
-
-	for i in 0..8 {
-		seed[i] = digest[i];
-	}
-
-	G2Projective::random(ChaCha20Rng::from_seed(seed))
-}
-
-/// Computes a random linear combination over v1/v2.
-///
-/// Checking that many pairs of elements are exponentiated by
-/// the same `x` can be achieved (with high probability) with
-/// the following technique:
-///
-/// Given v1 = [a, b, c] and v2 = [as, bs, cs], compute
-/// (a*r1 + b*r2 + c*r3, (as)*r1 + (bs)*r2 + (cs)*r3) for some
-/// random r1, r2, r3. Given (g, g^s)...
-///
-/// e(g, (as)*r1 + (bs)*r2 + (cs)*r3) = e(g^s, a*r1 + b*r2 + c*r3)
-///
-/// ... with high probability.
-pub fn merge_pairs(v1: &[G1Affine], v2: &[G1Affine]) -> (G1Affine, G1Affine) {
-	use rand::thread_rng;
-	use std::sync::Mutex;
-
-	assert_eq!(v1.len(), v2.len());
-
-	let chunk = (v1.len() / num_cpus::get()) + 1;
-
-	let s = Arc::new(Mutex::new(G1Projective::identity()));
-	let sx = Arc::new(Mutex::new(G1Projective::identity()));
-
-	crossbeam::scope(|scope| {
-		for (v1, v2) in v1.chunks(chunk).zip(v2.chunks(chunk)) {
-			let s = s.clone();
-			let sx = sx.clone();
-
-			scope.spawn(move |_| {
-				// We do not need to be overly cautious of the RNG
-				// used for this check.
-				let rng = &mut thread_rng();
-
-				let mut wnaf = Wnaf::new();
-				let mut local_s = G1Projective::identity();
-				let mut local_sx = G1Projective::identity();
-
-				for (v1, v2) in v1.iter().zip(v2.iter()) {
-					let rho = Scalar::random(&mut *rng);
-					let mut wnaf = wnaf.scalar(&rho);
-					let v1 = wnaf.base(v1.to_curve());
-					let v2 = wnaf.base(v2.to_curve());
-
-					local_s += &v1;
-					local_sx += &v2;
-				}
-
-				let mut ss = s.lock().unwrap();
-				*ss += &local_s;
-				let mut ssx = sx.lock().unwrap();
-				*ssx += &local_sx;
-			});
-		}
-	})
-	.expect("TODO: panic message");
-
-	let s = s.lock().unwrap().to_owned().into();
-	let sx = sx.lock().unwrap().to_owned().into();
-
-	(s, sx)
 }
