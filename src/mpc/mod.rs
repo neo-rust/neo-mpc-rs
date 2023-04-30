@@ -9,7 +9,7 @@ pub use self::{
 #[cfg(test)]
 mod test {
 	use crate::{
-		helpers::range::{less, less_or_equal, range_pub},
+		helpers::range::{less, range_pub},
 		mpc::{clean_params, MPCWork},
 	};
 	use bellman::{

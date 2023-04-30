@@ -11,8 +11,8 @@ use std::{
 	sync::Arc,
 };
 
-use group::{prime::PrimeCurveAffine, Group};
-use pairing::{group::Wnaf, PairingCurveAffine};
+use group::{prime::PrimeCurveAffine, Group, Wnaf};
+use pairing::PairingCurveAffine;
 
 use bls12_381::{Bls12, G1Affine, G1Projective, G2Affine, G2Projective, Scalar};
 
@@ -530,7 +530,7 @@ impl MPCParameters {
 				for (bases, projective) in
 					bases.chunks_mut(chunk_size).zip(projective.chunks_mut(chunk_size))
 				{
-					scope.spawn(move || {
+					scope.spawn(move |_| {
 						let mut wnaf = Wnaf::new();
 
 						for (base, projective) in bases.iter_mut().zip(projective.iter_mut()) {
@@ -543,7 +543,7 @@ impl MPCParameters {
 			// Perform batch normalization
 			crossbeam::scope(|scope| {
 				for projective in projective.chunks_mut(chunk_size) {
-					scope.spawn(move || {
+					scope.spawn(move |_| {
 						let mut affine = vec![G1Affine::identity(); projective.len()];
 						G1Projective::batch_normalize(projective, &mut affine);
 						projective.copy_from_slice(
@@ -991,7 +991,7 @@ fn merge_pairs(v1: &[G1Affine], v2: &[G1Affine]) -> (G1Affine, G1Affine) {
 			let s = s.clone();
 			let sx = sx.clone();
 
-			scope.spawn(move || {
+			scope.spawn(move |_| {
 				// We do not need to be overly cautious of the RNG
 				// used for this check.
 				let rng = &mut thread_rng();
